@@ -1,23 +1,109 @@
 # Task Manager API
 
-A NestJS-based task management application with user authentication, project collaboration, and asynchronous email processing.
+A production-ready task and project management platform built with NestJS, focused on collaboration, scalability, and modern backend architecture.
+The project was fully designed, implemented, deployed, and maintained from scratch as a portfolio-grade SaaS application.
 
-## Features
+The application is publicly available at:
 
-- **User Authentication**: JWT-based auth with role-based access (USER/ADMIN)
-- **Project Management**: Create projects, assign collaborators with different roles (VIEWER/EDITOR/OWNER)
-- **Task Management**: Create, assign, and track tasks with status (TODO/IN_PROGRESS/DONE) and priority (LOW/MEDIUM/HIGH)
-- **Collaboration**: Comment system on tasks
-- **File Uploads**: Cloudinary integration for avatar uploads
-- **Email Notifications**: Asynchronous email processing via RabbitMQ (forgot password, etc.)
-- **API Documentation**: Auto-generated Swagger/OpenAPI documentation
-- **Database**: PostgreSQL with Prisma ORM
-- **Validation**: Class-validator and class-transformer for DTO validation
-- **Testing**: Jest unit tests configured
+* [tasks.solutlabs.com.br](https://tasks.solutlabs.com.br?utm_source=chatgpt.com)
 
-## Project Structure
+Source code:
 
-```
+* [GitHub Repository](https://github.com/PatrickSchifter/task-manager?utm_source=chatgpt.com)
+
+---
+
+# Features
+
+* **User Authentication**
+
+  * JWT-based authentication
+  * Role-based access control (USER / ADMIN)
+  * Password recovery flow
+
+* **Project Management**
+
+  * Create and manage projects
+  * Invite collaborators
+  * Permission roles (VIEWER / EDITOR / OWNER)
+
+* **Task Management**
+
+  * Create and assign tasks
+  * Status tracking (TODO / IN_PROGRESS / DONE)
+  * Priority system (LOW / MEDIUM / HIGH)
+
+* **Collaboration**
+
+  * Task comments
+  * Multi-user workspace support
+
+* **File Uploads**
+
+  * Avatar upload support via [Cloudinary](https://cloudinary.com/?utm_source=chatgpt.com)
+
+* **Asynchronous Email Processing**
+
+  * Queue-based email processing with [RabbitMQ](https://www.rabbitmq.com/?utm_source=chatgpt.com)
+  * Forgot-password notifications
+  * Decoupled mail architecture
+
+* **API Documentation**
+
+  * Auto-generated Swagger/OpenAPI documentation
+
+* **Database**
+
+  * PostgreSQL + Prisma
+
+* **Validation**
+
+  * DTO validation using class-validator and class-transformer
+
+* **Testing**
+
+  * Jest unit tests configured
+
+* **CI/CD & Deployment**
+
+  * Automated deployment pipeline to Oracle Cloud Infrastructure
+  * Production environment with PM2 process management
+  * Automated build and deployment workflow integrated with GitHub
+
+---
+
+# Tech Stack
+
+## Backend
+
+* NestJS
+* TypeScript
+* Prisma
+* PostgreSQL
+
+## Infrastructure
+
+* [Oracle Cloud Infrastructure](https://www.oracle.com/cloud/?utm_source=chatgpt.com)
+* [PM2](https://pm2.keymetrics.io/?utm_source=chatgpt.com)
+* [RabbitMQ](https://www.rabbitmq.com/?utm_source=chatgpt.com)
+
+## External Services
+
+* [Cloudinary](https://cloudinary.com/?utm_source=chatgpt.com)
+* SMTP Mail Service
+
+## Tooling
+
+* [Swagger/OpenAPI](https://swagger.io/?utm_source=chatgpt.com)
+* [Jest](https://jestjs.io/?utm_source=chatgpt.com)
+* [Biome](https://biomejs.dev/?utm_source=chatgpt.com)
+* [PNPM](https://pnpm.io/?utm_source=chatgpt.com)
+
+---
+
+# Project Structure
+
+```bash
 src/
 ├── app.module.ts
 ├── main.ts
@@ -33,217 +119,334 @@ src/
 │   ├── collaborators/
 │   ├── comments/
 │   └── mail/
-├── generated/           # Prisma client output
+├── generated/
 └── ...
 ```
 
-## Prerequisites
+---
 
-- Node.js (v18+ recommended)
-- PostgreSQL
-- RabbitMQ
-- Cloudinary account (for file uploads)
-- PNPM package manager
+# Architecture Highlights
 
-## Installation
+## Queue-Based Email Processing
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd task-manager
-   ```
+The application uses asynchronous processing with [RabbitMQ](https://www.rabbitmq.com/?utm_source=chatgpt.com) to prevent expensive operations from blocking API responses.
 
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
+Example:
 
-3. Set up environment variables:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
+* Forgot password requests immediately return a response
+* Email delivery is handled asynchronously by consumers
 
-4. Set up the database:
-   ```bash
-   pnpm prisma:generate
-   pnpm migrate:dev
-   ```
+This architecture improves:
 
-5. Start the application:
-   ```bash
-   pnpm start:dev
-   ```
+* scalability
+* responsiveness
+* fault isolation
 
-## Environment Variables
+---
 
-Create a `.env` file based on the provided `.env.example` file. The example file contains:
+## Production Deployment
 
-```env
-#Database
-DATABASE_URL="url"
+The application is deployed in production on Oracle Cloud Infrastructure using an automated deployment pipeline.
 
-#JWT
-JWT_SECRET=***
+### Deployment Flow
 
-#Mail
-SMTP_HOST=host
-SMTP_PORT=465
-SMTP_USER=user
-SMTP_PASS=pass
+1. Push changes to repository
+2. CI/CD pipeline executes build process
+3. Application is deployed automatically to Oracle Cloud server
+4. PM2 reloads the production process
 
-#RMQ
-RABBITMQ_URL=url
+### Production Stack
 
-#Cloudnary
-CLOUDNARY_CLOUD_NAME=name
-CLOUDNARY_API_KEY=***
-CLOUDNARY_API_SECRET=***
+* Linux VPS on Oracle Cloud
+* PM2 process manager
+* Reverse proxy configuration
+* Environment-based configuration
+* Production PostgreSQL database
 
-#App
-PORT=some_number
-URL_BASE=urlbase
-NODE_ENV=development
+---
+
+# Prerequisites
+
+* Node.js (v18+ recommended)
+* PostgreSQL
+* RabbitMQ
+* Cloudinary account
+* PNPM
+
+---
+
+# Installation
+
+## Clone the repository
+
+```bash
+git clone https://github.com/PatrickSchifter/task-manager.git
+cd task-manager
 ```
 
-For a more detailed configuration with example values, you can use:
+## Install dependencies
+
+```bash
+pnpm install
+```
+
+## Configure environment variables
+
+```bash
+cp .env.example .env
+```
+
+Edit the `.env` file with your credentials.
+
+---
+
+# Environment Variables
 
 ```env
 # App
 APP_PORT=3000
 
-# Database (PostgreSQL)
-DATABASE_URL="postgresql://user:***@localhost:5432/taskmanager?schema=public"
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/taskmanager?schema=public"
 
 # JWT
-JWT_SECRET=your_jwt_secret_here
+JWT_SECRET=your_secret
 JWT_EXPIRES_IN=7d
-JWT_REFRESH_SECRET=your_jwt_refresh_secret_here
+JWT_REFRESH_SECRET=your_refresh_secret
 
-# Mail (RabbitMQ)
+# RabbitMQ
 RMQ_URL=amqp://guest:guest@localhost:5672
 EMAIL_QUEUE=email_queue
 
 # Cloudinary
 CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=***
-CLOUDINARY_API_SECRET=***
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
 
-# SMTP (for email service - used by MailConsumer)
+# SMTP
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
+SMTP_USER=your_user
+SMTP_PASS=your_password
 SMTP_FROM=no-reply@example.com
 
-# Frontend URL (for password reset links)
+# Frontend
 FRONTEND_URL=http://localhost:3000
 ```
 
-## Available Scripts
+---
 
-- `pnpm start` - Start production server
-- `pnpm start:dev` - Start development server with hot reload
-- `pnpm start:debug` - Start in debug mode
-- `pnpm start:prod` - Start compiled production server
-- `pnpm build` - Compile TypeScript to JavaScript
-- `pnpm format` - Format code with Prettier
-- `pnpm lint` - Run Biome linter
-- `pnpm test` - Run Jest tests
-- `pnpm test:watch` - Run tests in watch mode
-- `pnpm test:cov` - Run tests with coverage
-- `pnpm test:e2e` - Run end-to-end tests
-- `pnpm prisma:generate` - Generate Prisma client
-- `pnpm migrate:dev` - Run Prisma migrations in development mode
-- `pnpm migrate:deploy` - Run Prisma migrations in production mode
+# Available Scripts
 
-## API Documentation
+```bash
+pnpm start
+pnpm start:dev
+pnpm start:debug
+pnpm start:prod
 
-Once the server is running, visit:
-- Swagger UI: `http://localhost:${APP_PORT}/api`
-- OpenAPI JSON: `http://localhost:${APP_PORT}/api-json`
+pnpm build
 
-## Authentication
+pnpm lint
+pnpm format
 
-The API uses JWT Bearer tokens. To authenticate:
+pnpm test
+pnpm test:watch
+pnpm test:cov
+pnpm test:e2e
 
-1. Register a user: `POST /auth/register`
-2. Login: `POST /auth/login` (returns access_token)
-3. Include the token in the Authorization header: `Bearer <access_token>`
+pnpm prisma:generate
+pnpm migrate:dev
+pnpm migrate:deploy
+```
 
-## Modules Overview
+---
 
-### Auth
-- User registration and login
-- Password reset functionality
-- JWT token management
+# API Documentation
 
-### Users
-- User profile management
-- Avatar uploads (via Cloudinary)
+After starting the server:
 
-### Projects
-- CRUD operations for projects
-- Project collaboration management
+* Swagger UI:
 
-### Tasks
-- Task creation, assignment, and tracking
-- Task commenting system
+  * `http://localhost:${APP_PORT}/api`
 
-### Collaborators
-- Manage project collaborators with role-based permissions
+* OpenAPI JSON:
 
-### Mail
-- Asynchronous email processing via RabbitMQ
-- Email templates (Handlebars)
-- Forgot password notifications
+  * `http://localhost:${APP_PORT}/api-json`
 
-## Development Guidelines
+---
 
-### Code Style
-- Uses Biome for linting and formatting
-- Run `pnpm lint` to check for issues
-- Run `pnpm format` to automatically fix formatting
+# Authentication
 
-### Testing
-- Unit tests are colocated with implementation files (`*.spec.ts`)
-- End-to-end tests in `/test` directory
-- Run tests with `pnpm test`
+The API uses JWT Bearer authentication.
 
-### Database
-- Prisma ORM for database interactions
-- Migrations managed through Prisma CLI
-- Generate client after schema changes: `pnpm prisma:generate`
+## Authentication Flow
 
-## TODO / Future Improvements
+### Register
 
-- [x] **PrismaService global**: Created a PrismaModule with `@Global()` and registered it in AppModule to share a single instance throughout the application.
-- [ ] **Separate RabbitMQ consumer**: The MailConsumer currently runs in the same process as the API (`@Controller()`). In production, separate the consumer into its own process to avoid resource contention and prevent mail failures from affecting API routes.
-- [ ] **Health checks**: Add `@nestjs/terminus` with health checks for PostgreSQL, RabbitMQ, and SMTP. Useful for monitoring and readiness/liveness probes in deployment.
-- [ ] **Rate limiting on forgot-password route**: Despite RabbitMQ making responses fast, there's no abuse protection. Add `@nestjs/throttler` to the `forgotPassword` route to prevent email spam.
-- [ ] **Reset token with TTL**: The JWT for `password-reset` lacks explicit expiration (`expiresIn`). Add `expiresIn: '1h'` when signing the token.
-- [ ] **Remove console.log and console.error**: Replace `auth.service.ts:67` and `validate-resources-ids.interceptor.ts:40` with NestJS Logger using appropriate levels.
-- [ ] **Role-based access validation**: The `ProjectCollaborator` has roles (VIEWER/EDITOR/OWNER) but lacks guards that restrict operations by collaborator role (e.g., VIEWER shouldn't be able to edit tasks).
-- [ ] **Decouple CloudinaryService**: Move CloudinaryService to its own UploadsModule/SharedModule (currently in AppModule). Also fix the typo: `cloudnary` → `cloudinary`.
-- [ ] **Request ID / Correlation ID**: Propagate a correlation ID via middleware/interceptor to trace requests between the API and RabbitMQ consumer.
-- [ ] **RabbitMQ failure handling**: If the consumer fails to send an email, there's no dead-letter queue or retry configuration. Configure `prefetchCount`, DLQ, and retry with backoff.
-- [ ] **Seeding and fixtures**: Add a seed script with fake data to facilitate development and manual testing.
-- [ ] **.DS_Store in gitignore**: Already present in `.gitignore` and removed from commits.
+```http
+POST /auth/register
+```
 
-## Contributing
+### Login
+
+```http
+POST /auth/login
+```
+
+Returns:
+
+```json
+{
+  "access_token": "jwt_token"
+}
+```
+
+### Authenticated Requests
+
+```http
+Authorization: Bearer <access_token>
+```
+
+---
+
+# Modules Overview
+
+## Auth
+
+* Registration
+* Login
+* JWT management
+* Password recovery
+
+## Users
+
+* Profile management
+* Avatar uploads
+
+## Projects
+
+* CRUD operations
+* Collaboration management
+
+## Tasks
+
+* Task lifecycle management
+* Assignment system
+* Status tracking
+
+## Collaborators
+
+* Permission-based collaboration
+
+## Mail
+
+* Async email processing
+* Queue consumers
+* Handlebars templates
+
+---
+
+# Development Guidelines
+
+## Code Style
+
+The project uses [Biome](https://biomejs.dev/?utm_source=chatgpt.com) for linting and formatting.
+
+```bash
+pnpm lint
+pnpm format
+```
+
+---
+
+## Testing
+
+* Unit tests colocated with modules
+* E2E tests in `/test`
+* Jest testing environment configured
+
+```bash
+pnpm test
+```
+
+---
+
+## Database
+
+The application uses Prisma as ORM.
+
+### Generate Prisma Client
+
+```bash
+pnpm prisma:generate
+```
+
+### Run Migrations
+
+```bash
+pnpm migrate:dev
+```
+
+---
+
+# Roadmap / Future Improvements
+
+* [ ] AI-powered semantic search with RAG
+* [ ] Workspace contextual assistant
+* [ ] Intelligent task recommendations
+* [ ] Separate RabbitMQ consumer process
+* [ ] Health checks with `@nestjs/terminus`
+* [ ] Rate limiting on forgot-password route
+* [ ] Correlation ID tracing
+* [ ] Retry and DLQ strategy for RabbitMQ
+* [ ] Seed scripts and fixtures
+* [ ] Full collaborator permission guards
+
+---
+
+# Contributing
 
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create a branch
+
+```bash
+git checkout -b feature/amazing-feature
+```
+
+3. Commit changes
+
+```bash
+git commit -m "Add amazing feature"
+```
+
+4. Push branch
+
+```bash
+git push origin feature/amazing-feature
+```
+
 5. Open a Pull Request
 
-## License
+---
+
+# License
 
 MIT License
 
-## Contact
+---
 
-Patrick Schifter - [schiftercorp@outlook.com](mailto:schiftercorp@outlook.com)
+# Contact
 
-Project Link: [https://github.com/PatrickSchifter/task-manager](https://github.com/PatrickSchifter/task-manager)
+Patrick Schifter
+
+* Email:
+
+  * `schiftercorp@outlook.com`
+
+* GitHub:
+
+  * [PatrickSchifter GitHub](https://github.com/PatrickSchifter?utm_source=chatgpt.com)
+
+* Project Repository:
+
+  * [Task Manager Repository](https://github.com/PatrickSchifter/task-manager?utm_source=chatgpt.com)
