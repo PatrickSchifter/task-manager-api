@@ -107,3 +107,22 @@ enum TaskPriority {
   MEDIUM
   HIGH
 }
+
+enum EmbeddingSourceType {
+  TASK
+  COMMENT
+  PROJECT
+}
+
+model Embedding {
+  id         String              @id @default(uuid())
+  sourceType EmbeddingSourceType
+  sourceId   String
+  content    String
+  vector     Unsupported("vector(1536)")?
+  metadata   Json                @default("{}")
+  createdAt  DateTime            @default(now())
+
+  @@index([sourceType, sourceId])
+  @@unique([sourceType, sourceId])
+}

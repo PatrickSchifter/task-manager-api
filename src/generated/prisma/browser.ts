@@ -42,3 +42,8 @@ export type Project = Prisma.ProjectModel
  * 
  */
 export type Task = Prisma.TaskModel
+/**
+ * Model Embedding
+ * 
+ */
+export type Embedding = Prisma.EmbeddingModel

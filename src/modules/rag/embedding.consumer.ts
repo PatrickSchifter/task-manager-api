@@ -1,0 +1,50 @@
+import { Controller, Logger } from '@nestjs/common'
+import { EventPattern, Payload } from '@nestjs/microservices'
+import {
+  DELETE_EMBEDDING,
+  DELETE_EMBEDDING_BY_PROJECT,
+  DELETE_TASK_EMBEDDING,
+  GENERATE_COMMENT_EMBEDDING,
+  GENERATE_PROJECT_EMBEDDING,
+  GENERATE_TASK_EMBEDDING,
+} from 'src/consts'
+import { EmbeddingService } from './embedding.service'
+
+@Controller()
+export class EmbeddingConsumer {
+  private readonly logger = new Logger(EmbeddingConsumer.name)
+
+  constructor(private readonly embeddingService: EmbeddingService) {}
+
+  @EventPattern(GENERATE_TASK_EMBEDDING)
+  async handleTaskEmbedding(@Payload() data: { taskId: string }) {
+    await this.embeddingService.generateForTask(data.taskId)
+  }
+
+  @EventPattern(GENERATE_COMMENT_EMBEDDING)
+  async handleCommentEmbedding(@Payload() data: { commentId: string }) {
+    await this.embeddingService.generateForComment(data.commentId)
+  }
+
+  @EventPattern(GENERATE_PROJECT_EMBEDDING)
+  async handleProjectEmbedding(@Payload() data: { projectId: string }) {
+    await this.embeddingService.generateForProject(data.projectId)
+  }
+
+  @EventPattern(DELETE_EMBEDDING)
+  async handleDeleteEmbedding(
+    @Payload() data: { sourceType: 'TASK' | 'COMMENT' | 'PROJECT'; sourceId: string },
+  ) {
+    await this.embeddingService.deleteBySource(data.sourceType, data.sourceId)
+  }
+
+  @EventPattern(DELETE_EMBEDDING_BY_PROJECT)
+  async handleDeleteByProject(@Payload() data: { projectId: string }) {
+    await this.embeddingService.deleteByProject(data.projectId)
+  }
+
+  @EventPattern(DELETE_TASK_EMBEDDING)
+  async handleDeleteByTask(@Payload() data: { taskId: string }) {
+    await this.embeddingService.deleteByTask(data.taskId)
+  }
+}

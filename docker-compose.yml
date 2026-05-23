@@ -3,7 +3,7 @@ version: "3.1"
 services:
   db:
     container_name: task-manager-postgres
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: task-manager
@@ -13,5 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+
 volumes:
   db-data:

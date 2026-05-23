@@ -1,109 +1,145 @@
 # Task Manager API
 
-A production-ready task and project management platform built with NestJS, focused on collaboration, scalability, and modern backend architecture.
-The project was fully designed, implemented, deployed, and maintained from scratch as a portfolio-grade SaaS application.
+A production-ready task and project management platform built with NestJS — designed for collaboration, scalability, and intelligent productivity. Built from scratch as a portfolio-grade SaaS application with a full AI-powered assistant layer.
 
-The application is publicly available at:
-
-* [tasks.solutlabs.com.br](https://tasks.solutlabs.com.br?utm_source=chatgpt.com)
-
-Source code:
-
-* [GitHub Repository](https://github.com/PatrickSchifter/task-manager?utm_source=chatgpt.com)
+Live at **[tasks.solutlabs.com.br](https://tasks.solutlabs.com.br)** · [GitHub Repository](https://github.com/PatrickSchifter/task-manager)
 
 ---
 
-# Features
+## What makes this project stand out
 
-* **User Authentication**
+Most task managers store data. This one lets you **talk to it**.
 
-  * JWT-based authentication
-  * Role-based access control (USER / ADMIN)
-  * Password recovery flow
+Beyond the standard CRUD operations, Task Manager ships with a full **RAG (Retrieval-Augmented Generation)** pipeline that indexes every project, task, and comment as vector embeddings in PostgreSQL. Users can ask natural language questions — "What are my high priority tasks this week?", "Is anyone working on the frontend?" — and get intelligent, context-aware answers grounded in real data, not hallucinations.
 
-* **Project Management**
-
-  * Create and manage projects
-  * Invite collaborators
-  * Permission roles (VIEWER / EDITOR / OWNER)
-
-* **Task Management**
-
-  * Create and assign tasks
-  * Status tracking (TODO / IN_PROGRESS / DONE)
-  * Priority system (LOW / MEDIUM / HIGH)
-
-* **Collaboration**
-
-  * Task comments
-  * Multi-user workspace support
-
-* **File Uploads**
-
-  * Avatar upload support via [Cloudinary](https://cloudinary.com/?utm_source=chatgpt.com)
-
-* **Asynchronous Email Processing**
-
-  * Queue-based email processing with [RabbitMQ](https://www.rabbitmq.com/?utm_source=chatgpt.com)
-  * Forgot-password notifications
-  * Decoupled mail architecture
-
-* **API Documentation**
-
-  * Auto-generated Swagger/OpenAPI documentation
-
-* **Database**
-
-  * PostgreSQL + Prisma
-
-* **Validation**
-
-  * DTO validation using class-validator and class-transformer
-
-* **Testing**
-
-  * Jest unit tests configured
-
-* **CI/CD & Deployment**
-
-  * Automated deployment pipeline to Oracle Cloud Infrastructure
-  * Production environment with PM2 process management
-  * Automated build and deployment workflow integrated with GitHub
+The entire embedding pipeline is asynchronous, decoupled from the API via RabbitMQ, and scoped per user — so the AI only surfaces information the user actually has access to.
 
 ---
 
-# Tech Stack
+## Features
 
-## Backend
+### AI-Powered Assistant (RAG)
 
-* NestJS
-* TypeScript
-* Prisma
-* PostgreSQL
+The semantic search and chat layer is the most technically ambitious part of this project.
 
-## Infrastructure
+**How it works:**
 
-* [Oracle Cloud Infrastructure](https://www.oracle.com/cloud/?utm_source=chatgpt.com)
-* [PM2](https://pm2.keymetrics.io/?utm_source=chatgpt.com)
-* [RabbitMQ](https://www.rabbitmq.com/?utm_source=chatgpt.com)
+When a project, task, or comment is created or updated, an event is emitted to a RabbitMQ queue. A dedicated consumer picks it up, builds a rich text representation of the entity, generates a vector embedding via OpenAI's `text-embedding-3-small` model, and stores it in PostgreSQL using the `pgvector` extension.
 
-## External Services
+When a user sends a message to the `/rag/chat` endpoint, the system:
 
-* [Cloudinary](https://cloudinary.com/?utm_source=chatgpt.com)
-* SMTP Mail Service
+1. Embeds the user's question into the same vector space
+2. Runs a cosine similarity search across all embeddings the user has access to
+3. Injects the most relevant chunks as context into a GPT-4o mini prompt
+4. Returns a grounded, concise answer
 
-## Tooling
+**Key design decisions:**
 
-* [Swagger/OpenAPI](https://swagger.io/?utm_source=chatgpt.com)
-* [Jest](https://jestjs.io/?utm_source=chatgpt.com)
-* [Biome](https://biomejs.dev/?utm_source=chatgpt.com)
-* [PNPM](https://pnpm.io/?utm_source=chatgpt.com)
+- The embedding table is **polymorphic** — projects, tasks, and comments all live in a single `Embedding` table with a `sourceType` field, making it trivially extensible to new entity types
+- Access control is enforced at **query time** — the similarity search filters by `ProjectCollaborator` and `Project.createdById`, so users never see embeddings from projects they don't belong to
+- Embeddings are stored with a `metadata` JSON field (projectId, assigneeId, status, priority, dueDate) enabling **pre-filter before vector search** without extra JOINs
+- The pipeline is **fully async** — embedding generation never blocks an API response
+- Deletes are handled with **cascade-aware cleanup** methods that remove all related embeddings by `metadata.projectId` or `metadata.taskId` in a single query
+
+### User Authentication
+
+JWT-based auth with refresh token support, role-based access control (USER / ADMIN), and a full password recovery flow with async email delivery.
+
+### Project Management
+
+Create projects, invite collaborators, and assign permission roles per user (VIEWER / EDITOR / OWNER). Projects are the top-level workspace unit — everything scopes down from here.
+
+### Task Management
+
+Full task lifecycle with status tracking (TODO / IN_PROGRESS / DONE), priority levels (LOW / MEDIUM / HIGH), due dates, assignees, and drag-and-drop ordering support. Every mutation dispatches an embedding update automatically.
+
+### Collaboration
+
+Task-level comments with author attribution. Comment content is indexed as its own embedding chunk, so the AI can answer questions like "What did the team say about the backend task?" with precision.
+
+### File Uploads
+
+Avatar upload support via Cloudinary with automatic URL management.
+
+### Asynchronous Email Processing
+
+Queue-based email delivery via RabbitMQ. Forgot-password requests return immediately — the actual email is dispatched by a consumer in the background. Same pattern used for embedding generation.
+
+### API Documentation
+
+Full Swagger/OpenAPI documentation auto-generated and served at `/api`.
 
 ---
 
-# Project Structure
+## Tech Stack
 
-```bash
+**Backend:** NestJS · TypeScript · Prisma · PostgreSQL · pgvector
+
+**AI:** OpenAI API (`text-embedding-3-small` · `gpt-4o-mini`)
+
+**Infrastructure:** Oracle Cloud Infrastructure · PM2 · RabbitMQ
+
+**External Services:** Cloudinary · SMTP
+
+**Tooling:** Swagger · Jest · Biome · PNPM
+
+---
+
+## Architecture
+
+### RAG Pipeline
+
+```
+API Request (create/update)
+        │
+        ▼
+   RagService.dispatch*()
+        │
+        ▼
+   RabbitMQ (embedding_queue)
+        │
+        ▼
+   EmbeddingConsumer
+        │
+        ▼
+   EmbeddingService.generateFor*()
+        │  ├─ Fetch entity + relations from DB
+        │  ├─ Build text content + metadata
+        │  ├─ OpenAI embeddings API
+        │  └─ Upsert into Embedding table (pgvector)
+        ▼
+   PostgreSQL (pgvector HNSW index)
+
+
+Chat Request
+        │
+        ▼
+   EmbeddingService.searchSimilar()
+        │  ├─ Embed user query
+        │  ├─ Cosine similarity search (access-scoped)
+        │  └─ Return top-K chunks
+        │
+        ▼
+   RagService.chat()
+        │  ├─ Build context from chunks
+        │  └─ GPT-4o mini completion
+        ▼
+   Answer
+```
+
+### Queue-Based Processing
+
+Both email delivery and embedding generation follow the same async pattern — the API emits an event and returns immediately, while consumers handle the heavy lifting independently. This keeps API latency low and makes each concern independently scalable and fault-isolated.
+
+### Production Deployment
+
+Deployed on Oracle Cloud Infrastructure with an automated CI/CD pipeline. Pushes to the main branch trigger a build and deploy via PM2, with zero-downtime reloads in production.
+
+---
+
+## Project Structure
+
+```
 src/
 ├── app.module.ts
 ├── main.ts
@@ -118,89 +154,41 @@ src/
 │   ├── tasks/
 │   ├── collaborators/
 │   ├── comments/
-│   └── mail/
-├── generated/
-└── ...
+│   ├── mail/
+│   └── rag/
+│       ├── embedding.consumer.ts
+│       ├── embedding.service.ts
+│       ├── embedding-client.module.ts
+│       ├── rag.controller.ts
+│       ├── rag.dto.ts
+│       ├── rag.module.ts
+│       └── rag.service.ts
+└── generated/
 ```
 
 ---
 
-# Architecture Highlights
+## Getting Started
 
-## Queue-Based Email Processing
+### Prerequisites
 
-The application uses asynchronous processing with [RabbitMQ](https://www.rabbitmq.com/?utm_source=chatgpt.com) to prevent expensive operations from blocking API responses.
+- Node.js v18+
+- PostgreSQL with pgvector extension
+- RabbitMQ
+- OpenAI API key
+- Cloudinary account
+- PNPM
 
-Example:
-
-* Forgot password requests immediately return a response
-* Email delivery is handled asynchronously by consumers
-
-This architecture improves:
-
-* scalability
-* responsiveness
-* fault isolation
-
----
-
-## Production Deployment
-
-The application is deployed in production on Oracle Cloud Infrastructure using an automated deployment pipeline.
-
-### Deployment Flow
-
-1. Push changes to repository
-2. CI/CD pipeline executes build process
-3. Application is deployed automatically to Oracle Cloud server
-4. PM2 reloads the production process
-
-### Production Stack
-
-* Linux VPS on Oracle Cloud
-* PM2 process manager
-* Reverse proxy configuration
-* Environment-based configuration
-* Production PostgreSQL database
-
----
-
-# Prerequisites
-
-* Node.js (v18+ recommended)
-* PostgreSQL
-* RabbitMQ
-* Cloudinary account
-* PNPM
-
----
-
-# Installation
-
-## Clone the repository
+### Installation
 
 ```bash
 git clone https://github.com/PatrickSchifter/task-manager.git
 cd task-manager
-```
-
-## Install dependencies
-
-```bash
 pnpm install
-```
-
-## Configure environment variables
-
-```bash
 cp .env.example .env
 ```
 
-Edit the `.env` file with your credentials.
-
----
-
-# Environment Variables
+### Environment Variables
 
 ```env
 # App
@@ -217,6 +205,10 @@ JWT_REFRESH_SECRET=your_refresh_secret
 # RabbitMQ
 RMQ_URL=amqp://guest:guest@localhost:5672
 EMAIL_QUEUE=email_queue
+EMBEDDING_QUEUE=embedding_queue
+
+# OpenAI
+OPENAI_API_KEY=your_openai_api_key
 
 # Cloudinary
 CLOUDINARY_CLOUD_NAME=your_cloud_name
@@ -234,219 +226,92 @@ SMTP_FROM=no-reply@example.com
 FRONTEND_URL=http://localhost:3000
 ```
 
----
-
-# Available Scripts
+### Database Setup
 
 ```bash
-pnpm start
+# Enable pgvector extension (run once on your PostgreSQL instance)
+psql -d your_database -c "CREATE EXTENSION IF NOT EXISTS vector;"
+
+# Run migrations
+pnpm migrate:dev
+
+# Generate Prisma client
+pnpm prisma:generate
+
+# Seed with sample data and embeddings
+pnpm prisma db seed
+```
+
+### Running
+
+```bash
 pnpm start:dev
-pnpm start:debug
-pnpm start:prod
+```
 
-pnpm build
+API docs available at `http://localhost:3000/api`
 
-pnpm lint
-pnpm format
+---
 
-pnpm test
-pnpm test:watch
-pnpm test:cov
-pnpm test:e2e
+## Available Scripts
 
-pnpm prisma:generate
-pnpm migrate:dev
-pnpm migrate:deploy
+```bash
+pnpm start:dev        # development with watch
+pnpm start:prod       # production
+pnpm build            # compile
+pnpm lint             # Biome lint
+pnpm format           # Biome format
+pnpm test             # Jest unit tests
+pnpm test:cov         # coverage report
+pnpm migrate:dev      # run migrations
+pnpm migrate:deploy   # deploy migrations (production)
+pnpm prisma:generate  # regenerate Prisma client
 ```
 
 ---
 
-# API Documentation
+## API Highlights
 
-After starting the server:
-
-* Swagger UI:
-
-  * `http://localhost:${APP_PORT}/api`
-
-* OpenAPI JSON:
-
-  * `http://localhost:${APP_PORT}/api-json`
-
----
-
-# Authentication
-
-The API uses JWT Bearer authentication.
-
-## Authentication Flow
-
-### Register
-
-```http
+```
 POST /auth/register
-```
-
-### Login
-
-```http
 POST /auth/login
+
+GET  /projects
+POST /projects
+DELETE /projects/:id
+
+GET  /tasks
+POST /tasks
+PATCH /tasks/:id
+DELETE /tasks/:id
+
+POST /tasks/:id/comments
+DELETE /comments/:id
+
+POST /rag/chat          ← AI assistant
 ```
 
-Returns:
-
-```json
-{
-  "access_token": "jwt_token"
-}
-```
-
-### Authenticated Requests
-
-```http
-Authorization: Bearer <access_token>
-```
+Full Swagger documentation at `/api` after starting the server.
 
 ---
 
-# Modules Overview
+## Roadmap
 
-## Auth
-
-* Registration
-* Login
-* JWT management
-* Password recovery
-
-## Users
-
-* Profile management
-* Avatar uploads
-
-## Projects
-
-* CRUD operations
-* Collaboration management
-
-## Tasks
-
-* Task lifecycle management
-* Assignment system
-* Status tracking
-
-## Collaborators
-
-* Permission-based collaboration
-
-## Mail
-
-* Async email processing
-* Queue consumers
-* Handlebars templates
+- [ ] Separate RabbitMQ consumer process (independent scaling)
+- [ ] Health checks with `@nestjs/terminus`
+- [ ] Rate limiting on auth routes
+- [ ] Correlation ID tracing across async flows
+- [ ] Dead letter queue strategy for failed embeddings
+- [ ] Intelligent task recommendations based on user patterns
+- [ ] Full collaborator permission guards on all routes
 
 ---
 
-# Development Guidelines
+## License
 
-## Code Style
-
-The project uses [Biome](https://biomejs.dev/?utm_source=chatgpt.com) for linting and formatting.
-
-```bash
-pnpm lint
-pnpm format
-```
+MIT
 
 ---
 
-## Testing
+## Contact
 
-* Unit tests colocated with modules
-* E2E tests in `/test`
-* Jest testing environment configured
-
-```bash
-pnpm test
-```
-
----
-
-## Database
-
-The application uses Prisma as ORM.
-
-### Generate Prisma Client
-
-```bash
-pnpm prisma:generate
-```
-
-### Run Migrations
-
-```bash
-pnpm migrate:dev
-```
-
----
-
-# Roadmap / Future Improvements
-
-* [ ] AI-powered semantic search with RAG
-* [ ] Workspace contextual assistant
-* [ ] Intelligent task recommendations
-* [ ] Separate RabbitMQ consumer process
-* [ ] Health checks with `@nestjs/terminus`
-* [ ] Rate limiting on forgot-password route
-* [ ] Correlation ID tracing
-* [ ] Retry and DLQ strategy for RabbitMQ
-* [ ] Seed scripts and fixtures
-* [ ] Full collaborator permission guards
-
----
-
-# Contributing
-
-1. Fork the repository
-2. Create a branch
-
-```bash
-git checkout -b feature/amazing-feature
-```
-
-3. Commit changes
-
-```bash
-git commit -m "Add amazing feature"
-```
-
-4. Push branch
-
-```bash
-git push origin feature/amazing-feature
-```
-
-5. Open a Pull Request
-
----
-
-# License
-
-MIT License
-
----
-
-# Contact
-
-Patrick Schifter
-
-* Email:
-
-  * `schiftercorp@outlook.com`
-
-* GitHub:
-
-  * [PatrickSchifter GitHub](https://github.com/PatrickSchifter?utm_source=chatgpt.com)
-
-* Project Repository:
-
-  * [Task Manager Repository](https://github.com/PatrickSchifter/task-manager?utm_source=chatgpt.com)
+Patrick Schifter · [schiftercorp@outlook.com](mailto:schiftercorp@outlook.com) · [GitHub](https://github.com/PatrickSchifter)

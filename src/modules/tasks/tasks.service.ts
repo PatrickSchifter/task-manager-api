@@ -2,14 +2,18 @@ import { Injectable } from '@nestjs/common'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
+import { RagService } from '../rag/rag.service'
 import { TaskItemListDTO, TasksRequestDTO } from './tasks.dto'
 
 @Injectable()
 export class TasksService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ragService: RagService,
+  ) {}
 
-  create({ data, projectId }: { data: TasksRequestDTO; projectId: string }) {
-    return this.prisma.task.create({
+  async create({ data, projectId }: { data: TasksRequestDTO; projectId: string }) {
+    const task = await this.prisma.task.create({
       data: {
         ...data,
         dueDate: data.dueDate ? new Date(`${data.dueDate}T00:00:00.000Z`) : undefined,
@@ -26,6 +30,10 @@ export class TasksService {
         },
       },
     })
+
+    this.ragService.dispatchTaskEmbedding(task.id)
+
+    return task
   }
 
   async findAllByProjectId({
@@ -78,8 +86,8 @@ export class TasksService {
     })
   }
 
-  update({ id, data, projectId }: { id: string; data: TasksRequestDTO; projectId: string }) {
-    return this.prisma.task.update({
+  async update({ id, data, projectId }: { id: string; data: TasksRequestDTO; projectId: string }) {
+    const updated = await this.prisma.task.update({
       where: {
         id,
         projectId,
@@ -90,9 +98,16 @@ export class TasksService {
       },
       include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } },
     })
+
+    this.ragService.dispatchTaskEmbedding(updated.id)
+    return updated
   }
 
-  delete({ id, projectId }: { id: string; projectId: string }) {
-    return this.prisma.task.delete({ where: { id, projectId } })
+  async delete({ id, projectId }: { id: string; projectId: string }) {
+    await this.prisma.task.findUnique({ where: { id }, include: { comments: true } })
+    await this.prisma.comment.deleteMany({ where: { taskId: id } })
+    await this.prisma.task.delete({ where: { id, projectId } })
+    this.ragService.dispatchTaskDelete(id)
+    return
   }
 }

@@ -42,3 +42,12 @@ export const TaskPriority = {
 } as const
 
 export type TaskPriority = (typeof TaskPriority)[keyof typeof TaskPriority]
+
+
+export const EmbeddingSourceType = {
+  TASK: 'TASK',
+  COMMENT: 'COMMENT',
+  PROJECT: 'PROJECT'
+} as const
+
+export type EmbeddingSourceType = (typeof EmbeddingSourceType)[keyof typeof EmbeddingSourceType]

@@ -4,6 +4,7 @@ import { RequestContextService } from 'src/common/services/request-context/reque
 import { Comment } from 'src/generated/prisma/client'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
+import { RagService } from '../rag/rag.service'
 import { AddCommentDTO, UpdateCommentDTO } from './comments.dto'
 
 const authorAttributes = {
@@ -20,11 +21,12 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly requestContext: RequestContextService,
+    private readonly ragService: RagService,
   ) {}
 
-  create({ data, taskId }: { data: AddCommentDTO; taskId: string }) {
+  async create({ data, taskId }: { data: AddCommentDTO; taskId: string }) {
     const userId = this.requestContext.getUserId()
-    return this.prisma.comment.create({
+    const comment = await this.prisma.comment.create({
       data: {
         ...data,
         task: { connect: { id: taskId } },
@@ -32,6 +34,8 @@ export class CommentsService {
       },
       include: { author: authorAttributes },
     })
+    this.ragService.dispatchCommentEmbedding(comment.id)
+    return comment
   }
 
   findById(taskId: string) {
@@ -81,7 +85,8 @@ export class CommentsService {
     const userId = this.requestContext.getUserId()
     const comment = await this.prisma.comment.findFirst({ where: { id } })
     if (!comment) throw new NotFoundException('Comment not found')
-    return this.prisma.comment.update({
+
+    const updated = await this.prisma.comment.update({
       where: {
         id,
         authorId: userId,
@@ -89,6 +94,10 @@ export class CommentsService {
       data,
       include: { author: authorAttributes },
     })
+
+    this.ragService.dispatchCommentEmbedding(comment.id)
+
+    return updated
   }
 
   async delete(id: string) {
@@ -98,6 +107,8 @@ export class CommentsService {
     if (!comment) throw new NotFoundException('Comment not found')
 
     await this.prisma.comment.delete({ where: { id, authorId: userId } })
+    this.ragService.dispatchDelete('COMMENT', id)
+
     return
   }
 }

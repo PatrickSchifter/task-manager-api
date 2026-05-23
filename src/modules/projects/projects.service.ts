@@ -5,6 +5,7 @@ import { Project } from 'src/generated/prisma/client'
 import { CollaboratorRole } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
+import { RagService } from '../rag/rag.service'
 import { ProjectDTO } from './projects.dto'
 
 @Injectable()
@@ -12,6 +13,7 @@ export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly requestContext: RequestContextService,
+    private readonly ragService: RagService,
   ) {}
 
   async findAll(query?: QueryPaginationDTO): Promise<PaginatedResponseDTO<Project>> {
@@ -99,12 +101,21 @@ export class ProjectsService {
       },
     })
 
+    if (data.description) {
+      console.log('Chamando embedding')
+      this.ragService.dispatchProjectEmbedding(project.id)
+    }
+
     return project
   }
 
-  update(id: string, data: ProjectDTO) {
+  async update(id: string, data: ProjectDTO) {
     const userId = this.requestContext.getUserId()
-    return this.prisma.project.update({ where: { id, createdById: userId }, data })
+    const updated = await this.prisma.project.update({ where: { id, createdById: userId }, data })
+
+    if (data.description) this.ragService.dispatchProjectEmbedding(id)
+
+    return updated
   }
 
   async delete(id: string) {
@@ -118,6 +129,7 @@ export class ProjectsService {
     }
 
     await this.prisma.project.delete({ where: { id, createdById: userId } })
+    this.ragService.dispatchProjectDelete(id)
     return
   }
 }

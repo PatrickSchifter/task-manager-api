@@ -8,4 +8,7 @@ export default () => ({
   rmq: {
     url: process.env.RABBITMQ_URL,
   },
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,
+  },
 })
