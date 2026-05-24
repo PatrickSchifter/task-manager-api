@@ -18,10 +18,6 @@ export class EmbeddingService {
     })
   }
 
-  // -------------------------------------------------------
-  // Geradores por fonte
-  // -------------------------------------------------------
-
   async generateForTask(taskId: string) {
     const task = await this.prisma.task.findUnique({
       where: { id: taskId },
@@ -126,10 +122,6 @@ export class EmbeddingService {
     })
   }
 
-  // -------------------------------------------------------
-  // Delete (substitui cascade ausente no schema polimórfico)
-  // -------------------------------------------------------
-
   async deleteBySource(sourceType: EmbeddingSourceType, sourceId: string) {
     await this.prisma.$executeRaw(Prisma.sql`
       DELETE FROM "Embedding"
@@ -137,10 +129,6 @@ export class EmbeddingService {
         AND "sourceId" = ${sourceId}
     `)
   }
-
-  // -------------------------------------------------------
-  // Search
-  // -------------------------------------------------------
 
   async searchSimilar({
     userId,
@@ -160,8 +148,6 @@ export class EmbeddingService {
 
     type Result = { sourceType: string; sourceId: string; content: string; similarity: number }
 
-    // A query garante que só retorna embeddings de projetos
-    // aos quais o userId tem acesso (como colaborador ou criador)
     const results = await this.prisma.$queryRaw<Result[]>(Prisma.sql`
       SELECT
         e."sourceType",
@@ -170,7 +156,6 @@ export class EmbeddingService {
         1 - (e."vector" <=> ${vector}::vector) AS similarity
       FROM "Embedding" e
       WHERE (
-        -- TASK e COMMENT: acesso via ProjectCollaborator ou criador do projeto
         (
           e."sourceType" IN ('TASK', 'COMMENT')
           AND (e."metadata"->>'projectId') IN (
@@ -180,7 +165,6 @@ export class EmbeddingService {
           )
         )
         OR
-        -- PROJECT: acesso direto
         (
           e."sourceType" = 'PROJECT'
           AND e."sourceId" IN (
@@ -196,10 +180,6 @@ export class EmbeddingService {
 
     return results
   }
-
-  // -------------------------------------------------------
-  // Interno
-  // -------------------------------------------------------
 
   private async upsert({
     sourceType,
