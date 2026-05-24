@@ -23,4 +23,4 @@ import { EMBEDDING_QUEUE, EMBEDDING_SERVICE } from 'src/consts'
   ],
   exports: [ClientsModule],
 })
-export class EmbeddingClientModule {}
+export class EmbeddingModule {}

@@ -155,10 +155,11 @@ src/
 │   ├── collaborators/
 │   ├── comments/
 │   ├── mail/
+│   ├── embedding/
+│   │   ├── embedding.consumer.ts
+│   │   ├── embedding.service.ts
+│   │   └── embedding.module.ts
 │   └── rag/
-│       ├── embedding.consumer.ts
-│       ├── embedding.service.ts
-│       ├── embedding-client.module.ts
 │       ├── rag.controller.ts
 │       ├── rag.dto.ts
 │       ├── rag.module.ts

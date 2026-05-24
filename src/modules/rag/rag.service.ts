@@ -12,7 +12,7 @@ import {
   GENERATE_PROJECT_EMBEDDING,
   GENERATE_TASK_EMBEDDING,
 } from 'src/consts'
-import { EmbeddingService } from './embedding.service'
+import { EmbeddingService } from '../embedding/embedding.service'
 
 @Injectable()
 export class RagService {

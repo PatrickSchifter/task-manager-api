@@ -1,4 +1,4 @@
-import { Controller, Logger } from '@nestjs/common'
+import { Controller } from '@nestjs/common'
 import { EventPattern, Payload } from '@nestjs/microservices'
 import {
   DELETE_EMBEDDING,
@@ -12,8 +12,6 @@ import { EmbeddingService } from './embedding.service'
 
 @Controller()
 export class EmbeddingConsumer {
-  private readonly logger = new Logger(EmbeddingConsumer.name)
-
   constructor(private readonly embeddingService: EmbeddingService) {}
 
   @EventPattern(GENERATE_TASK_EMBEDDING)
