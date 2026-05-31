@@ -3,6 +3,7 @@ import { TasksService } from './tasks.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TasksRequestDTO } from './tasks.dto';
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto';
+import { RagService } from '../rag/rag.service';
 
 describe('TasksService', () => {
   let service: TasksService;
@@ -34,9 +35,20 @@ describe('TasksService', () => {
               findMany: jest.fn().mockResolvedValue([mockTask]),
               count: jest.fn().mockResolvedValue(1),
               findFirst: jest.fn().mockResolvedValue(mockTask),
+              findUnique: jest.fn().mockResolvedValue(mockTask),
               update: jest.fn().mockResolvedValue(mockTask),
               delete: jest.fn().mockResolvedValue(undefined),
             },
+            comment: {
+              deleteMany: jest.fn().mockResolvedValue(undefined),
+            },
+          },
+        },
+        {
+          provide: RagService,
+          useValue: {
+            dispatchTaskEmbedding: jest.fn(),
+            dispatchTaskDelete: jest.fn(),
           },
         },
       ],
@@ -59,12 +71,12 @@ describe('TasksService', () => {
         description: 'New task description',
         status: 'PENDING',
         priority: 'HIGH',
-        dueDate: new Date(),
+        dueDate: '2026-06-15',
         assigneeId: 'user1',
       };
       const projectId = 'project1';
 
-      const expectedTask = { ...mockTask, ...createTaskDto, projectId };
+      const expectedTask = { ...mockTask, ...createTaskDto, dueDate: new Date('2026-06-15T00:00:00.000Z'), projectId };
       jest.spyOn(prismaService.task, 'create').mockResolvedValue(expectedTask as any);
 
       const result = await service.create({ data: createTaskDto, projectId });
@@ -72,11 +84,36 @@ describe('TasksService', () => {
       expect(prismaService.task.create).toHaveBeenCalledWith({
         data: {
           ...createTaskDto,
+          dueDate: new Date('2026-06-15T00:00:00.000Z'),
           projectId,
         },
         include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } },
       });
       expect(result).toEqual(expectedTask);
+    });
+
+    it('should create a task without dueDate', async () => {
+      const createTaskDto: TasksRequestDTO = {
+        title: 'No Due Date Task',
+        description: 'Task without due date',
+        status: 'PENDING',
+        priority: 'LOW',
+        assigneeId: 'user1',
+      };
+      const projectId = 'project1';
+
+      jest.spyOn(prismaService.task, 'create').mockResolvedValue(mockTask as any);
+
+      await service.create({ data: createTaskDto, projectId });
+
+      expect(prismaService.task.create).toHaveBeenCalledWith({
+        data: {
+          ...createTaskDto,
+          dueDate: undefined,
+          projectId,
+        },
+        include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } },
+      });
     });
   });
 
@@ -161,10 +198,10 @@ describe('TasksService', () => {
         description: 'Updated description',
         status: 'IN_PROGRESS',
         priority: 'HIGH',
-        dueDate: new Date(),
+        dueDate: '2026-07-01',
         assigneeId: 'user2',
       };
-      const updatedTask = { ...mockTask, ...updateTaskDto };
+      const updatedTask = { ...mockTask, ...updateTaskDto, dueDate: new Date('2026-07-01T00:00:00.000Z') };
 
       jest.spyOn(prismaService.task, 'update').mockResolvedValue(updatedTask as any);
 
@@ -175,10 +212,36 @@ describe('TasksService', () => {
           id,
           projectId,
         },
-        data: updateTaskDto,
+        data: {
+          ...updateTaskDto,
+          dueDate: new Date('2026-07-01T00:00:00.000Z'),
+        },
         include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } },
       });
       expect(result).toEqual(updatedTask);
+    });
+
+    it('should update a task without dueDate', async () => {
+      const id = 'task1';
+      const projectId = 'project1';
+      const updateTaskDto: TasksRequestDTO = {
+        title: 'Updated No Due Date',
+        status: 'DONE',
+        priority: 'LOW',
+      };
+
+      jest.spyOn(prismaService.task, 'update').mockResolvedValue(mockTask as any);
+
+      await service.update({ id, data: updateTaskDto, projectId });
+
+      expect(prismaService.task.update).toHaveBeenCalledWith({
+        where: { id, projectId },
+        data: {
+          ...updateTaskDto,
+          dueDate: undefined,
+        },
+        include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } },
+      });
     });
   });
 

@@ -422,6 +422,18 @@ pnpm prisma:generate  # regenerate Prisma client
 
 ---
 
+## Tests
+
+```bash
+pnpm test:cov
+```
+
+| Statements | Branches | Functions | Lines |
+|---|---|---|---|
+| 97.74% | 80.16% | 97.61% | 98.33% |
+
+---
+
 ## API Highlights
 
 ```

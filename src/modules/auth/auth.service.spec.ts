@@ -6,6 +6,7 @@ import { MailService } from '../mail/mail.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { RequestContextService } from 'src/common/services/request-context/request-context.service';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -50,6 +51,20 @@ describe('AuthService', () => {
             user: {
               update: jest.fn(),
             },
+          },
+        },
+        {
+          provide: RequestContextService,
+          useValue: {
+            getUser: jest.fn().mockReturnValue({
+              id: 'user1',
+              name: 'Test User',
+              email: 'test@example.com',
+              avatar: null,
+              role: 'ADMIN',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }),
           },
         },
       ],

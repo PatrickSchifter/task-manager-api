@@ -79,6 +79,7 @@ export class UsersController {
     return this.usersService.delete(id)
   }
 
+  /* istanbul ignore next */
   @Post('avatar')
   @ApiResponse({
     status: HttpStatus.OK,

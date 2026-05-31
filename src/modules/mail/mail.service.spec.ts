@@ -1,8 +1,26 @@
+jest.mock('fs', () => ({
+  readFileSync: jest.fn().mockReturnValue('Hello {{url}}'),
+}))
+
+jest.mock('handlebars', () => ({
+  compile: jest.fn().mockReturnValue((data: any) => `<html>${data.url}</html>`),
+}))
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { MailService } from './mail.service';
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy } from '@nestjs/microservices';
 import { EMAIL_SERVICE, SEND_PASSWORD_RESET } from 'src/consts';
+
+jest.mock('resend', () => {
+  return {
+    Resend: jest.fn().mockImplementation(() => ({
+      emails: {
+        send: jest.fn().mockResolvedValue({ data: { id: 'email123' } }),
+      },
+    })),
+  }
+})
 
 describe('MailService', () => {
   let service: MailService;
@@ -16,13 +34,21 @@ describe('MailService', () => {
         {
           provide: ConfigService,
           useValue: {
-            getOrThrow: jest.fn().mockReturnValue('http://localhost:3000'), // Mock base URL
+            getOrThrow: jest.fn().mockImplementation((key: string) => {
+              if (key === 'RESEND_API_KEY') return 'test-resend-key';
+              if (key === 'app.web_app_url_base') return 'http://localhost:3000';
+              return 'http://localhost:3000';
+            }),
+            get: jest.fn().mockImplementation((key: string) => {
+              if (key === 'EMAIL_FROM') return 'noreply@test.com';
+              return null;
+            }),
           },
         },
         {
           provide: EMAIL_SERVICE,
           useValue: {
-            emit: jest.fn(), // Mock ClientProxy's emit method
+            emit: jest.fn().mockReturnValue({ subscribe: jest.fn() }),
           },
         },
       ],
@@ -44,12 +70,40 @@ describe('MailService', () => {
       const email = 'test@example.com';
       const token = 'resettoken123';
       const baseUrl = 'http://localhost:3000';
-      const expectedUrl = `${baseUrl}/v1/auth/reset-password?token=${token}`;
+      const expectedUrl = `${baseUrl}/reset-password?token=${token}`;
 
       await service.sendPasswordRequest(email, token);
 
-      expect(configService.getOrThrow).toHaveBeenCalledWith('app.url_base');
+      expect(configService.getOrThrow).toHaveBeenCalledWith('app.web_app_url_base');
       expect(clientProxy.emit).toHaveBeenCalledWith(SEND_PASSWORD_RESET, { email, url: expectedUrl });
+    });
+  });
+
+  describe('sendPasswordRequestDirect', () => {
+    it('should render template and send email directly', async () => {
+      const email = 'test@example.com';
+      const url = 'http://example.com/reset';
+
+      const result = await service.sendPasswordRequestDirect(email, url);
+
+      expect(configService.get).toHaveBeenCalledWith('EMAIL_FROM');
+      expect(result).toEqual({ data: { id: 'email123' } });
+    });
+  });
+
+  describe('sendEmail', () => {
+    it('should send an email via resend', async () => {
+      await service.sendEmail('user@test.com', 'Subject', '<p>HTML</p>');
+
+      expect(configService.get).toHaveBeenCalledWith('EMAIL_FROM');
+    });
+
+    it('should throw error if EMAIL_FROM is not configured', async () => {
+      jest.spyOn(configService, 'get').mockReturnValue(undefined);
+
+      await expect(
+        service.sendEmail('user@test.com', 'Subject', '<p>HTML</p>'),
+      ).rejects.toThrow('EMAIL_FROM não configurado');
     });
   });
 });

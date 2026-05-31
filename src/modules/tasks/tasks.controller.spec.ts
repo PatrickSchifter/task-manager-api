@@ -1,179 +1,144 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { TasksController } from './tasks.controller';
-import { TasksService } from './tasks.service';
-import { TasksRequestDTO } from './tasks.dto';
-import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto';
-import { Reflector } from '@nestjs/core';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard';
+import { Test, TestingModule } from '@nestjs/testing'
+import { INestApplication } from '@nestjs/common'
+import request from 'supertest'
+import { TasksController } from './tasks.controller'
+import { TasksService } from './tasks.service'
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
+import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
+import { Reflector } from '@nestjs/core'
+import { PrismaService } from 'src/prisma/prisma.service'
 
-describe('TasksController', () => {
-  let controller: TasksController;
-  let tasksService: TasksService;
+describe('TasksController (integration)', () => {
+  let app: INestApplication
+  let service: TasksService
+
+  const validProjectId = '00000000-0000-0000-0000-000000000001'
+  const validTaskId = '00000000-0000-0000-0000-000000000002'
+
+  const mockTask = {
+    id: validTaskId,
+    title: 'Test Task',
+    description: 'Description',
+    status: 'TODO',
+    priority: 'MEDIUM',
+    dueDate: new Date().toISOString(),
+    projectId: validProjectId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    assignee: { id: 'user1', name: 'User', email: 'user@test.com', avatar: null },
+  }
 
   beforeEach(async () => {
+    const serviceMock = {
+      create: jest.fn().mockResolvedValue(mockTask),
+      findAllByProjectId: jest.fn().mockResolvedValue({
+        data: [mockTask],
+        meta: {
+          total: 1, currentPage: 1, lastPage: 1,
+          nextPage: null, prevPage: null, totalPerPage: 10,
+        },
+      }),
+      findById: jest.fn().mockResolvedValue(mockTask),
+      update: jest.fn().mockResolvedValue(mockTask),
+      delete: jest.fn().mockResolvedValue(undefined),
+    }
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [TasksController],
       providers: [
-        {
-          provide: TasksService,
-          useValue: {
-            create: jest.fn(),
-            findAllByProjectId: jest.fn(),
-            findById: jest.fn(),
-            update: jest.fn(),
-            delete: jest.fn(),
-          },
-        },
-        {
-          provide: Reflector,
-          useValue: {
-            get: jest.fn().mockReturnValue(true), // Mock the Reflector to return true for @ValidateResourcesIds
-          },
-        },
+        { provide: TasksService, useValue: serviceMock },
+        { provide: Reflector, useValue: { get: jest.fn().mockReturnValue(false) } },
         {
           provide: PrismaService,
           useValue: {
-            project: {
-              findFirst: jest.fn().mockResolvedValue({ id: 'projectId' }), // Mock project to exist
-            },
-            task: {
-              findFirst: jest.fn().mockResolvedValue({ id: 'taskId' }), // Mock task to exist
-            },
-            user: {
-              findFirst: jest.fn().mockResolvedValue({ id: 'userId' }), // Mock user to exist
-            },
+            project: { findFirst: jest.fn().mockResolvedValue({ id: validProjectId }) },
+            task: { findFirst: jest.fn().mockResolvedValue({ id: validTaskId }) },
+            user: { findFirst: jest.fn().mockResolvedValue({ id: 'user1' }) },
           },
         },
       ],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({
-        canActivate: jest.fn().mockReturnValue(true), // Mock JwtAuthGuard to always allow activation
+      .useValue({ canActivate: jest.fn().mockResolvedValue(true) })
+      .overrideInterceptor(ValidateResourcesIdsInterceptor)
+      .useValue({ intercept: jest.fn((ctx, next) => next.handle()) })
+      .compile()
+
+    app = module.createNestApplication()
+    await app.init()
+
+    service = module.get<TasksService>(TasksService)
+  })
+
+  afterEach(async () => {
+    await app.close()
+  })
+
+  describe('GET /projects/:projectId/tasks', () => {
+    it('should return paginated tasks', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/projects/${validProjectId}/tasks`)
+        .expect(200)
+
+      expect(service.findAllByProjectId).toHaveBeenCalledWith({
+        projectId: validProjectId,
+        query: {},
       })
-      .compile();
+    })
+  })
 
-    controller = module.get<TasksController>(TasksController);
-    tasksService = module.get<TasksService>(TasksService);
+  describe('POST /projects/:projectId/tasks', () => {
+    it('should create a task', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/projects/${validProjectId}/tasks`)
+        .send({ title: 'New Task' })
+        .expect(201)
 
-    jest.clearAllMocks();
-  });
+      expect(service.create).toHaveBeenCalledWith({
+        data: { title: 'New Task' },
+        projectId: validProjectId,
+      })
+    })
+  })
 
-  it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
+  describe('GET /projects/:projectId/tasks/:taskId', () => {
+    it('should return a task by id', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/projects/${validProjectId}/tasks/${validTaskId}`)
+        .expect(200)
 
-  describe('findAllByProjectId', () => {
-    it('should call tasksService.findAllByProjectId and return paginated results', async () => {
-      const projectId = 'project1';
-      const query: QueryPaginationDTO = { page: 1, limit: 10 };
-      const serviceResult = {
-        data: [{ id: 'task1', title: 'Test Task', projectId, assigneeId: 'user1' }],
-        meta: { total: 1, currentPage: 1, lastPage: 1, nextPage: null, prevPage: null, totalPerPage: 10 },
-      };
-      jest.spyOn(tasksService, 'findAllByProjectId').mockResolvedValue(serviceResult as any);
+      expect(service.findById).toHaveBeenCalledWith({
+        id: validTaskId,
+        projectId: validProjectId,
+      })
+    })
+  })
 
-      // Mock request parameters for interceptor
-      Object.defineProperty(controller, 'findAllByProjectId', {
-        value: jest.fn().mockImplementation((reqProjectId, reqQuery) => {
-          return tasksService.findAllByProjectId({ projectId: reqProjectId, query: reqQuery });
-        }),
-      });
+  describe('PUT /projects/:projectId/tasks/:taskId', () => {
+    it('should update a task', async () => {
+      const res = await request(app.getHttpServer())
+        .put(`/projects/${validProjectId}/tasks/${validTaskId}`)
+        .send({ title: 'Updated' })
+        .expect(200)
 
-      const result = await controller.findAllByProjectId(projectId, query);
+      expect(service.update).toHaveBeenCalledWith({
+        data: { title: 'Updated' },
+        id: validTaskId,
+        projectId: validProjectId,
+      })
+    })
+  })
 
-      expect(tasksService.findAllByProjectId).toHaveBeenCalledWith({ projectId, query });
-      expect(result).toEqual(serviceResult);
-    });
-  });
+  describe('DELETE /projects/:projectId/tasks/:taskId', () => {
+    it('should delete a task', async () => {
+      await request(app.getHttpServer())
+        .delete(`/projects/${validProjectId}/tasks/${validTaskId}`)
+        .expect(204)
 
-  describe('create', () => {
-    it('should call tasksService.create and return the result', async () => {
-      const projectId = 'project1';
-      const createTaskDto: TasksRequestDTO = { title: 'New Task', description: 'Description', status: 'PENDING', priority: 'LOW', dueDate: new Date(), assigneeId: 'user1' };
-      const serviceResult = { id: 'task1', ...createTaskDto, projectId };
-      jest.spyOn(tasksService, 'create').mockResolvedValue(serviceResult as any);
-
-      // Mock request parameters for interceptor
-      Object.defineProperty(controller, 'create', {
-        value: jest.fn().mockImplementation((reqProjectId, body) => {
-          return tasksService.create({ data: body, projectId: reqProjectId });
-        }),
-      });
-
-      const result = await controller.create(projectId, createTaskDto);
-
-      expect(tasksService.create).toHaveBeenCalledWith({
-        data: createTaskDto,
-        projectId,
-      });
-      expect(result).toEqual(serviceResult);
-    });
-  });
-
-  describe('findById', () => {
-    it('should call tasksService.findById and return the task', async () => {
-      const projectId = 'project1';
-      const taskId = 'task1';
-      const serviceResult = { id: taskId, title: 'Test Task', projectId };
-      jest.spyOn(tasksService, 'findById').mockResolvedValue(serviceResult as any);
-
-      // Mock request parameters for interceptor
-      Object.defineProperty(controller, 'findById', {
-        value: jest.fn().mockImplementation((reqProjectId, reqTaskId) => {
-          return tasksService.findById({ id: reqTaskId, projectId: reqProjectId });
-        }),
-      });
-
-      const result = await controller.findById(projectId, taskId);
-
-      expect(tasksService.findById).toHaveBeenCalledWith({ id: taskId, projectId });
-      expect(result).toEqual(serviceResult);
-    });
-  });
-
-  describe('update', () => {
-    it('should call tasksService.update and return the updated task', async () => {
-      const projectId = 'project1';
-      const taskId = 'task1';
-      const updateTaskDto: TasksRequestDTO = { title: 'Updated Task', description: 'Updated', status: 'IN_PROGRESS', priority: 'HIGH', dueDate: new Date(), assigneeId: 'user2' };
-      const serviceResult = { id: taskId, ...updateTaskDto, projectId };
-      jest.spyOn(tasksService, 'update').mockResolvedValue(serviceResult as any);
-
-      // Mock request parameters for interceptor
-      Object.defineProperty(controller, 'update', {
-        value: jest.fn().mockImplementation((reqTaskId, reqProjectId, body) => {
-          return tasksService.update({ data: body, id: reqTaskId, projectId: reqProjectId });
-        }),
-      });
-
-      const result = await controller.update(taskId, projectId, updateTaskDto);
-
-      expect(tasksService.update).toHaveBeenCalledWith({
-        data: updateTaskDto,
-        id: taskId,
-        projectId,
-      });
-      expect(result).toEqual(serviceResult);
-    });
-  });
-
-  describe('delete', () => {
-    it('should call tasksService.delete', async () => {
-      const projectId = 'project1';
-      const taskId = 'task1';
-      jest.spyOn(tasksService, 'delete').mockResolvedValue(undefined);
-
-      // Mock request parameters for interceptor
-      Object.defineProperty(controller, 'delete', {
-        value: jest.fn().mockImplementation((reqTaskId, reqProjectId) => {
-          return tasksService.delete({ id: reqTaskId, projectId: reqProjectId });
-        }),
-      });
-
-      await controller.delete(taskId, projectId);
-
-      expect(tasksService.delete).toHaveBeenCalledWith({ id: taskId, projectId });
-    });
-  });
-});
+      expect(service.delete).toHaveBeenCalledWith({
+        id: validTaskId,
+        projectId: validProjectId,
+      })
+    })
+  })
+})

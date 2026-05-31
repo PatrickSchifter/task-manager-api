@@ -65,6 +65,18 @@ describe('McpController', () => {
       expect(mcpService.processRequest).toHaveBeenCalledWith(prompt, context);
       expect(result).toEqual(serviceResult);
     });
+
+    it('should default actions to empty array when not returned', async () => {
+      const prompt = 'Hello';
+      const req = { user: { id: 'user1' } };
+      const serviceResult = { response: 'Hello back' };
+
+      jest.spyOn(mcpService, 'processRequest').mockResolvedValue(serviceResult as any);
+
+      const result = await controller.processRequest({ prompt }, req);
+
+      expect(result).toEqual({ response: 'Hello back', actions: [] });
+    });
   });
 
   describe('getCapabilities', () => {

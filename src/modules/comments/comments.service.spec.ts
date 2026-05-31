@@ -3,6 +3,7 @@ import { CommentsService } from './comments.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RequestContextService } from 'src/common/services/request-context/request-context.service';
 import { NotFoundException } from '@nestjs/common';
+import { RagService } from '../rag/rag.service';
 
 describe('CommentsService', () => {
   let service: CommentsService;
@@ -48,6 +49,13 @@ describe('CommentsService', () => {
           provide: RequestContextService,
           useValue: {
             getUserId: jest.fn().mockReturnValue('user1'),
+          },
+        },
+        {
+          provide: RagService,
+          useValue: {
+            dispatchCommentEmbedding: jest.fn(),
+            dispatchDelete: jest.fn(),
           },
         },
       ],

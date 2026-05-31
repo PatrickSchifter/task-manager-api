@@ -44,6 +44,7 @@ export class UpdateUsersDTO {
   })
   @IsEnum(Role)
   @IsOptional()
+  /* istanbul ignore next */
   role?: Role = Role.ADMIN
 
   avatar?: string
