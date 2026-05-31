@@ -75,7 +75,11 @@ async function bootstrap() {
   await app.startAllMicroservices()
 
   //Validations
-  app.useGlobalPipes(new ValidationPipe())
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+    }),
+  )
 
   const port = configService.getOrThrow<number>('app.port')
   await app.listen(port)
