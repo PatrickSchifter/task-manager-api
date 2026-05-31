@@ -50,8 +50,12 @@ export class RagService {
     }
 
     try {
-      // Etapa 1 — extrai filtros estruturados e marca como processando
-      const filters = await this.extractFilters(chatMessage.content)
+      // Etapa 0 — busca histórico recente da conversa (excluindo a mensagem atual)
+      const recentMessages = await this.chatService.findByUserId(chatMessage.userId, 6)
+      const conversationHistory = this.buildConversationHistory(recentMessages, messageId)
+
+      // Etapa 1 — extrai filtros estruturados com contexto e marca como processando
+      const filters = await this.extractFilters(chatMessage.content, conversationHistory)
 
       await this.chatService.setProcessing(messageId, filters as Prisma.InputJsonValue)
 
@@ -72,6 +76,7 @@ export class RagService {
       }
 
       // Etapa 2b — busca vetorial restrita aos IDs (ou sem restrição se sem filtros)
+      // Nota: apenas a mensagem atual é usada como query para evitar ruído nos embeddings
       const similar = await this.embeddingService.searchSimilar({
         userId: chatMessage.userId,
         query: chatMessage.content,
@@ -88,8 +93,12 @@ export class RagService {
 
       const context = similar.map((r, i) => `[${r.sourceType} ${i + 1}]\n${r.content}`).join('\n\n')
 
-      // Etapa 3 — gera resposta final
-      const response = await this.generateResponse(chatMessage.content, context)
+      // Etapa 3 — gera resposta final com histórico e contexto recuperado
+      const response = await this.generateResponse(
+        chatMessage.content,
+        context,
+        conversationHistory,
+      )
       await this.chatService.setDelivered(messageId, response)
     } catch (err) {
       this.logger.error(`Failed to process message ${messageId}`, err)
@@ -97,9 +106,28 @@ export class RagService {
     }
   }
 
+  // ─── Constrói representação textual do histórico ──────────────────────────
+
+  private buildConversationHistory(
+    messages: Awaited<ReturnType<ChatService['findByUserId']>>,
+    currentMessageId: string,
+  ): string {
+    return messages
+      .filter((m) => m.id !== currentMessageId && m.response !== null)
+      .map((m) => `USER: ${m.content}\nASSISTANT: ${m.response}`)
+      .join('\n\n')
+  }
+
   // ─── 1ª chamada: extrai filtros em JSON ──────────────────────────────────
 
-  private async extractFilters(message: string): Promise<StructuredFilters> {
+  private async extractFilters(
+    message: string,
+    conversationHistory: string,
+  ): Promise<StructuredFilters> {
+    const historySection = conversationHistory
+      ? `Conversation History (most recent first):\n${conversationHistory}\n\n`
+      : ''
+
     const completion = await this.openai.chat.completions.create({
       model: 'gpt-4o-mini',
       response_format: { type: 'json_object' },
@@ -117,7 +145,10 @@ Available fields (omit if not relevant):
 
 Return {} if no filters apply. Never include extra text outside the JSON.`,
         },
-        { role: 'user', content: message },
+        {
+          role: 'user',
+          content: `${historySection}Current Message:\n${message}`,
+        },
       ],
     })
 
@@ -131,13 +162,24 @@ Return {} if no filters apply. Never include extra text outside the JSON.`,
 
   // ─── 2ª chamada: gera resposta final ─────────────────────────────────────
 
-  private async generateResponse(message: string, context: string): Promise<string> {
+  private async generateResponse(
+    message: string,
+    context: string,
+    conversationHistory: string,
+  ): Promise<string> {
+    const historySection = conversationHistory
+      ? `Conversation History:\n${conversationHistory}\n\n`
+      : ''
+
     const completion = await this.openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
-          content: `You are a task management assistant. Answer the user's question based only on the context provided below. Be concise and helpful.\n\nContext:\n${context}`,
+          content: `You are a task management assistant. Answer the user's question based only on the retrieved context provided below. Be concise and helpful. Use the conversation history to resolve references like "those", "these", "the previous ones", or follow-up refinements.
+
+${historySection}Retrieved Context:
+${context}`,
         },
         { role: 'user', content: message },
       ],

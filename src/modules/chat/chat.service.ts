@@ -74,4 +74,12 @@ export class ChatService {
       take: limit,
     })
   }
+
+  findByUserId(userId: string, limit: number) {
+    return this.prisma.chatMessage.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    })
+  }
 }

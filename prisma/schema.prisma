@@ -28,7 +28,7 @@ model User {
   tasksAssigned   Task[]    @relation("AssignedTasks")
   comments        Comment[]
   collaborations  ProjectCollaborator[]
-  chatMessages ChatMessage[]
+  chatMessages    ChatMessage[]
 }
 
 enum CollaboratorRole {

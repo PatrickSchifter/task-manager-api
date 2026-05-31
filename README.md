@@ -20,7 +20,7 @@ The entire pipeline is **end-to-end asynchronous**: from the moment a user sends
 
 ### AI-Powered Chat Assistant (RAG)
 
-The semantic search and chat layer is the most technically ambitious part of this project. It goes beyond a simple "embed and search" implementation — it uses a **two-stage AI pipeline** with structured pre-filtering, making answers dramatically more relevant and precise.
+The semantic search and chat layer is the most technically ambitious part of this project. It goes beyond a simple "embed and search" implementation — it uses a **two-stage AI pipeline** with structured pre-filtering and conversational context, making answers dramatically more relevant and precise.
 
 #### How a message flows through the system
 
@@ -37,9 +37,24 @@ POST /v1/chat { "message": "What tasks are still pending?" }
   → Returns { id, status: "QUEUED", ... } immediately
 ```
 
+**Stage 0.5 — Conversational Context**
+
+Before any AI call is made, the system fetches the last 5 delivered messages from the user's conversation history. Each message carries both the original question (`content`) and the assistant's answer (`response`), which are formatted into a structured history block:
+
+```
+USER: What tasks are still pending?
+ASSISTANT: You have 3 pending tasks: ...
+
+USER: Now only the high priority ones
+```
+
+This history is injected into both AI calls — the filter parser and the response generator — enabling the system to resolve follow-up questions, implicit references ("those tasks", "the previous ones", "now only the critical ones"), and multi-turn refinements without the user having to repeat context.
+
+The vector search query itself remains the raw current message — history is intentionally excluded from embedding lookup to avoid noise in similarity scoring.
+
 **Stage 1 — Structured Pre-filtering (1st AI call)**
 
-The `RagConsumer` picks up the event from the queue. Before touching any vector search, it makes a first call to GPT-4o mini with a specialized system prompt that acts as a **query parser**. The model reads the user's natural language question and returns a structured JSON object with filters:
+The `RagConsumer` picks up the event from the queue. Before touching any vector search, it makes a first call to GPT-4o mini with a specialized system prompt that acts as a **query parser**. The model reads both the conversation history and the user's current question, and returns a structured JSON object with filters:
 
 ```json
 {
@@ -48,6 +63,12 @@ The `RagConsumer` picks up the event from the queue. Before touching any vector 
   "sourceTypes": ["TASK", "COMMENT"]
 }
 ```
+
+Because the model has access to the conversation history, it can correctly resolve follow-up messages. For example:
+
+| History | Current message | Extracted filters |
+|---|---|---|
+| "What tasks are overdue?" | "Now only the high priority ones" | `{ "status": ["TODO"], "priority": ["HIGH"] }` |
 
 These filters are persisted back to the message record (status: `PROCESSING`) and used in the next step. This is what separates this pipeline from a naive RAG implementation — instead of doing a wide vector search over all data and hoping the model figures it out, we narrow down the candidate set *before* computing any similarity scores.
 
@@ -70,7 +91,13 @@ LIMIT 5
 
 **Stage 3 — Response Generation (2nd AI call)**
 
-The top results are assembled into a rich context block and sent to GPT-4o mini with a task-management system prompt. The model is instructed to answer **only** based on the provided context — no hallucinations, no invented data. The response is persisted with status `DELIVERED`.
+The top results are assembled into a rich context block and sent to GPT-4o mini alongside the conversation history and the current message. The model receives three clearly separated inputs:
+
+- **Conversation History** — to resolve references like "those", "these", "the previous ones"
+- **Retrieved Context** — the actual task/project/comment data from the vector search
+- **Current User Message** — the question to answer
+
+The model is instructed to answer **only** based on the provided context — no hallucinations, no invented data. The response is persisted with status `DELIVERED`.
 
 **Polling for the result**
 
@@ -97,6 +124,7 @@ Every state transition is persisted to the `chat_messages` table, giving full ob
 | **Async queue** | The API never blocks on AI calls. A slow OpenAI response doesn't affect other users or endpoints |
 | **Two-stage AI** | The first AI call converts vague natural language into precise database filters. The second AI call generates a grounded answer from the right data |
 | **Hybrid search** | Relational pre-filtering eliminates irrelevant embeddings before vector comparison, improving both precision and performance |
+| **Conversational context** | The last 5 delivered messages are injected into both AI calls, enabling multi-turn interactions and implicit references without polluting the vector search query |
 | **Per-user access control** | Enforced at query time — a user can never receive information from projects they don't belong to, regardless of vector similarity |
 | **Persistent message state** | Full audit trail of every chat interaction, from enqueue to delivery |
 | **Graceful failure** | Any exception marks the message as `FAILED` instead of crashing the consumer |
@@ -113,8 +141,14 @@ POST /v1/chat
               RagConsumer.handleProcessMessage()
                       │
                       ▼
+              Fetch last 5 delivered messages
+              Build conversation history block
+              (USER: ... / ASSISTANT: ...)
+                      │
+                      ▼
               1st AI call (GPT-4o mini)
               "Parse this question into filters"
+              [receives: history + current message]
                       │
                       ▼
               { status, priority, projectId, sourceTypes }
@@ -132,6 +166,8 @@ POST /v1/chat
                         ▼
          ┌────────────────────────────┐
          │     Vector Search          │
+         │  query = current message   │
+         │  (history excluded)        │
          │  WHERE (sourceType,        │
          │    sourceId) IN (ids)      │
          │  ORDER BY similarity DESC  │
@@ -140,6 +176,7 @@ POST /v1/chat
                         ▼
               2nd AI call (GPT-4o mini)
               "Answer based only on this context"
+              [receives: history + context + current message]
                         │
                         ▼
               Persist response (DELIVERED)
