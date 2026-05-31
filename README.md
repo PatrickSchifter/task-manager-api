@@ -1,8 +1,6 @@
 # Task Manager API
 
-A production-ready task and project management platform built with NestJS — designed for collaboration, scalability, and intelligent productivity. Built from scratch as a portfolio-grade SaaS application with a full AI-powered assistant layer.
-
-Live at **[tasks.solutlabs.com.br](https://tasks.solutlabs.com.br)** · [GitHub Repository](https://github.com/PatrickSchifter/task-manager)
+Task Manager API is a production-ready SaaS platform for team task management, built with NestJS and deployed on Oracle Cloud. It features a full AI-powered chat assistant — users can ask natural language questions about their projects and tasks and get context-aware answers in real time. The entire AI pipeline runs asynchronously through message queues, keeping the API fast and independently scalable. Built as a portfolio-grade project with 97%+ test coverage and live at **[tasks.solutlabs.com.br](https://tasks.solutlabs.com.br)**.
 
 ---
 
