@@ -6,6 +6,7 @@ import { CloudnaryService } from './common/services/cloudnary/cloudnary.service'
 import { RequestContextService } from './common/services/request-context/request-context.service'
 import appConfig from './config/app.config'
 import { AuthModule } from './modules/auth/auth.module'
+import { ChatModule } from './modules/chat/chat.module'
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module'
 import { CommentsModule } from './modules/comments/comments.module'
 import { MailModule } from './modules/mail/mail.module'
@@ -32,6 +33,7 @@ import { PrismaModule } from './prisma/prisma.module'
     MailModule,
     McpModule,
     RagModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService, RequestContextService, CloudnaryService],

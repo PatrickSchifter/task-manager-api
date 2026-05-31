@@ -108,7 +108,6 @@ export class EmbeddingService {
       `Description: ${project.description}`,
       `Created by: ${project.createdBy.name}`,
     ].join('\n')
-    console.log(content)
 
     const metadata = {
       createdById: project.createdById,
@@ -134,10 +133,12 @@ export class EmbeddingService {
     userId,
     query,
     limit = 5,
+    allowedSourceIds,
   }: {
     userId: string
     query: string
     limit?: number
+    allowedSourceIds?: { sourceType: EmbeddingSourceType; sourceId: string }[]
   }) {
     const response = await this.openai.embeddings.create({
       model: 'text-embedding-3-small',
@@ -148,37 +149,124 @@ export class EmbeddingService {
 
     type Result = { sourceType: string; sourceId: string; content: string; similarity: number }
 
-    const results = await this.prisma.$queryRaw<Result[]>(Prisma.sql`
+    if (allowedSourceIds && allowedSourceIds.length > 0) {
+      const values = allowedSourceIds
+        .map(
+          ({ sourceType, sourceId }) => `('${sourceType}'::"EmbeddingSourceType", '${sourceId}')`,
+        )
+        .join(', ')
+
+      const results = await this.prisma.$queryRaw<Result[]>(Prisma.sql`
       SELECT
         e."sourceType",
         e."sourceId",
         e."content",
         1 - (e."vector" <=> ${vector}::vector) AS similarity
       FROM "Embedding" e
-      WHERE (
-        (
-          e."sourceType" IN ('TASK', 'COMMENT')
-          AND (e."metadata"->>'projectId') IN (
-            SELECT p.id FROM "Project" p
-            LEFT JOIN "ProjectCollaborator" pc ON pc."projectId" = p.id
-            WHERE pc."userId" = ${userId} OR p."createdById" = ${userId}
-          )
-        )
-        OR
-        (
-          e."sourceType" = 'PROJECT'
-          AND e."sourceId" IN (
-            SELECT p.id FROM "Project" p
-            LEFT JOIN "ProjectCollaborator" pc ON pc."projectId" = p.id
-            WHERE pc."userId" = ${userId} OR p."createdById" = ${userId}
-          )
-        )
-      )
+      WHERE (e."sourceType", e."sourceId") IN (${Prisma.raw(values)})
       ORDER BY similarity DESC
       LIMIT ${limit}
     `)
 
+      return results
+    }
+
+    const results = await this.prisma.$queryRaw<Result[]>(Prisma.sql`
+    SELECT
+      e."sourceType",
+      e."sourceId",
+      e."content",
+      1 - (e."vector" <=> ${vector}::vector) AS similarity
+    FROM "Embedding" e
+    WHERE (
+      (
+        e."sourceType" IN ('TASK', 'COMMENT')
+        AND (e."metadata"->>'projectId') IN (
+          SELECT p.id FROM "Project" p
+          LEFT JOIN "ProjectCollaborator" pc ON pc."projectId" = p.id
+          WHERE pc."userId" = ${userId} OR p."createdById" = ${userId}
+        )
+      )
+      OR
+      (
+        e."sourceType" = 'PROJECT'
+        AND e."sourceId" IN (
+          SELECT p.id FROM "Project" p
+          LEFT JOIN "ProjectCollaborator" pc ON pc."projectId" = p.id
+          WHERE pc."userId" = ${userId} OR p."createdById" = ${userId}
+        )
+      )
+    )
+    ORDER BY similarity DESC
+    LIMIT ${limit}
+  `)
+
     return results
+  }
+
+  async filterToEmbeddingIds(
+    userId: string,
+    filters: {
+      status?: string[]
+      priority?: string[]
+      projectId?: string
+      sourceTypes?: ('TASK' | 'COMMENT' | 'PROJECT')[]
+    },
+  ): Promise<{ sourceType: EmbeddingSourceType; sourceId: string }[]> {
+    const sourceTypes = filters.sourceTypes ?? ['TASK', 'COMMENT', 'PROJECT']
+    const result: { sourceType: EmbeddingSourceType; sourceId: string }[] = []
+
+    if (sourceTypes.includes('TASK')) {
+      const tasks = await this.prisma.task.findMany({
+        where: {
+          project: {
+            OR: [{ createdById: userId }, { collaborators: { some: { userId } } }],
+            ...(filters.projectId ? { id: filters.projectId } : {}),
+          },
+          ...(filters.status?.length ? { status: { in: filters.status as any } } : {}),
+          ...(filters.priority?.length ? { priority: { in: filters.priority as any } } : {}),
+        },
+        select: { id: true },
+      })
+
+      result.push(...tasks.map((t) => ({ sourceType: EmbeddingSourceType.TASK, sourceId: t.id })))
+    }
+
+    if (sourceTypes.includes('COMMENT')) {
+      const comments = await this.prisma.comment.findMany({
+        where: {
+          task: {
+            project: {
+              OR: [{ createdById: userId }, { collaborators: { some: { userId } } }],
+              ...(filters.projectId ? { id: filters.projectId } : {}),
+            },
+            ...(filters.status?.length ? { status: { in: filters.status as any } } : {}),
+            ...(filters.priority?.length ? { priority: { in: filters.priority as any } } : {}),
+          },
+        },
+        select: { id: true },
+      })
+
+      result.push(
+        ...comments.map((c) => ({ sourceType: EmbeddingSourceType.COMMENT, sourceId: c.id })),
+      )
+    }
+
+    if (sourceTypes.includes('PROJECT')) {
+      const projects = await this.prisma.project.findMany({
+        where: {
+          OR: [{ createdById: userId }, { collaborators: { some: { userId } } }],
+          ...(filters.projectId ? { id: filters.projectId } : {}),
+        },
+        select: { id: true },
+      })
+
+      result.push(
+        ...projects.map((p) => ({ sourceType: EmbeddingSourceType.PROJECT, sourceId: p.id })),
+      )
+    }
+
+    return result
   }
 
   private async upsert({

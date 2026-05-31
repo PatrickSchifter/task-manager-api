@@ -1,17 +1,48 @@
 import { Module } from '@nestjs/common'
-import { ConfigModule } from '@nestjs/config'
+import { ConfigModule, ConfigService } from '@nestjs/config'
+import { ClientsModule, Transport } from '@nestjs/microservices'
 import { RequestContextService } from 'src/common/services/request-context/request-context.service'
-import { PrismaModule } from 'src/prisma/prisma.module'
-import { EmbeddingConsumer } from '../embedding/embedding.consumer'
+import { CHAT_QUEUE, CHAT_SERVICE, EMBEDDING_QUEUE, EMBEDDING_SERVICE } from 'src/consts'
+import { ChatModule } from '../chat/chat.module'
 import { EmbeddingModule } from '../embedding/embedding.module'
-import { EmbeddingService } from '../embedding/embedding.service'
-import { RagController } from './rag.controller'
+import { RagConsumer } from './rag.consumer'
 import { RagService } from './rag.service'
 
 @Module({
-  imports: [ConfigModule, PrismaModule, EmbeddingModule],
-  providers: [RagService, EmbeddingService, RequestContextService],
-  controllers: [RagController, EmbeddingConsumer],
-  exports: [RagService, EmbeddingService],
+  imports: [
+    EmbeddingModule,
+    ChatModule,
+    ClientsModule.registerAsync([
+      {
+        name: EMBEDDING_SERVICE,
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [config.getOrThrow<string>('rmq.url')],
+            queue: EMBEDDING_QUEUE,
+            queueOptions: { durable: true },
+          },
+        }),
+      },
+      {
+        name: CHAT_SERVICE,
+        imports: [ConfigModule],
+        inject: [ConfigService],
+        useFactory: (config: ConfigService) => ({
+          transport: Transport.RMQ,
+          options: {
+            urls: [config.getOrThrow<string>('rmq.url')],
+            queue: CHAT_QUEUE,
+            queueOptions: { durable: true },
+          },
+        }),
+      },
+    ]),
+  ],
+  providers: [RagService, RequestContextService],
+  controllers: [RagConsumer],
+  exports: [RagService],
 })
 export class RagModule {}

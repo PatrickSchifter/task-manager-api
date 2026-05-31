@@ -28,9 +28,6 @@ export class MailService {
     return compiled(data)
   }
 
-  /**
-   * 🔥 Função genérica pra envio de email (usar daqui pra frente)
-   */
   async sendEmail(to: string, subject: string, html: string) {
     const from = this.configService.get<string>('EMAIL_FROM')
 
@@ -46,10 +43,6 @@ export class MailService {
     })
   }
 
-  /**
-   * 📩 Fluxo atual (mantido)
-   * Você pode continuar usando via fila/microservice
-   */
   async sendPasswordRequest(email: string, token: string) {
     const web_app_url = this.configService.getOrThrow<string>('app.web_app_url_base')
 
@@ -57,10 +50,6 @@ export class MailService {
     this.client.emit(SEND_PASSWORD_RESET, { email, url })
   }
 
-  /**
-   * 🚀 Nova versão direta (sem fila)
-   * Pode usar quando quiser simplificar
-   */
   async sendPasswordRequestDirect(email: string, url: string) {
     const html = this.renderTemplate('forgot-password', { url })
 

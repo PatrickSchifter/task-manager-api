@@ -4,7 +4,7 @@ import { NestFactory } from '@nestjs/core'
 import { MicroserviceOptions, Transport } from '@nestjs/microservices'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
 import { AppModule } from './app.module'
-import { EMAIL_QUEUE, EMBEDDING_QUEUE } from './consts'
+import { CHAT_QUEUE, EMAIL_QUEUE, EMBEDDING_QUEUE } from './consts'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -45,6 +45,7 @@ async function bootstrap() {
       queue: EMAIL_QUEUE,
       queueOptions: {
         durable: true,
+        noAck: true,
       },
     },
   })
@@ -55,6 +56,19 @@ async function bootstrap() {
       urls: [configService.getOrThrow<string>('rmq.url')],
       queue: EMBEDDING_QUEUE,
       queueOptions: { durable: true },
+      noAck: true,
+    },
+  })
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rmqUrl],
+      queue: CHAT_QUEUE,
+      queueOptions: {
+        durable: true,
+        noAck: true,
+      },
     },
   })
 

@@ -51,3 +51,13 @@ export const EmbeddingSourceType = {
 } as const
 
 export type EmbeddingSourceType = (typeof EmbeddingSourceType)[keyof typeof EmbeddingSourceType]
+
+
+export const MessageStatus = {
+  QUEUED: 'QUEUED',
+  PROCESSING: 'PROCESSING',
+  DELIVERED: 'DELIVERED',
+  FAILED: 'FAILED'
+} as const
+
+export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus]

@@ -14,5 +14,19 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
 
+  rabbitmq:
+    container_name: task-manager-rabbitmq
+    image: rabbitmq:3-management
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
 volumes:
   db-data:
+  rabbitmq-data:

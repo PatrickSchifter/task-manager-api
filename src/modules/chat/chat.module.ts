@@ -1,30 +1,31 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ClientsModule, Transport } from '@nestjs/microservices'
-import { EMBEDDING_QUEUE, EMBEDDING_SERVICE } from 'src/consts'
-import { EmbeddingConsumer } from './embedding.consumer'
-import { EmbeddingService } from './embedding.service'
+import { RequestContextService } from 'src/common/services/request-context/request-context.service'
+import { CHAT_QUEUE, CHAT_SERVICE } from 'src/consts'
+import { ChatController } from './chat.controller'
+import { ChatService } from './chat.service'
 
 @Module({
   imports: [
     ClientsModule.registerAsync([
       {
-        name: EMBEDDING_SERVICE,
+        name: CHAT_SERVICE,
         imports: [ConfigModule],
         inject: [ConfigService],
         useFactory: (config: ConfigService) => ({
           transport: Transport.RMQ,
           options: {
             urls: [config.getOrThrow<string>('rmq.url')],
-            queue: EMBEDDING_QUEUE,
+            queue: CHAT_QUEUE,
             queueOptions: { durable: true },
           },
         }),
       },
     ]),
   ],
-  controllers: [EmbeddingConsumer],
-  providers: [EmbeddingService],
-  exports: [ClientsModule, EmbeddingService],
+  providers: [ChatService, RequestContextService],
+  controllers: [ChatController],
+  exports: [ChatService, ClientsModule],
 })
-export class EmbeddingModule {}
+export class ChatModule {}

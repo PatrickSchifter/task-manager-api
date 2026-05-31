@@ -47,3 +47,8 @@ export type Task = Prisma.TaskModel
  * 
  */
 export type Embedding = Prisma.EmbeddingModel
+/**
+ * Model ChatMessage
+ * 
+ */
+export type ChatMessage = Prisma.ChatMessageModel

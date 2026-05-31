@@ -102,7 +102,6 @@ export class ProjectsService {
     })
 
     if (data.description) {
-      console.log('Chamando embedding')
       this.ragService.dispatchProjectEmbedding(project.id)
     }
 
