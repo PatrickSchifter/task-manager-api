@@ -29,4 +29,5 @@ jobs:
             git reset --hard HEAD && git pull origin main
             pnpm i
             pnpm run build
+            pnpm prisma generate
             pm2 restart api
