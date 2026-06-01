@@ -232,7 +232,7 @@ Full Swagger/OpenAPI documentation auto-generated and served at `/api`.
 
 **Infrastructure:** Oracle Cloud Infrastructure · PM2 · RabbitMQ
 
-**External Services:** Cloudinary · SMTP
+**External Services:** Cloudinary · Resend
 
 **Tooling:** Swagger · Jest · Biome · PNPM
 
@@ -245,7 +245,7 @@ Full Swagger/OpenAPI documentation auto-generated and served at `/api`.
 All three queues follow the same async pattern — the API emits an event and returns immediately, while consumers handle the heavy lifting independently:
 
 ```
-email_queue      → MailConsumer      → SMTP delivery
+email_queue      → MailConsumer      → Resend delivery
 embedding_queue  → EmbeddingConsumer → OpenAI embeddings → pgvector upsert
 chat_queue       → RagConsumer       → 2x OpenAI calls   → response persisted
 ```
@@ -351,11 +351,8 @@ CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 
 # SMTP
-SMTP_HOST=smtp.example.com
-SMTP_PORT=587
-SMTP_USER=your_user
-SMTP_PASS=your_password
-SMTP_FROM=no-reply@example.com
+RESEND_API_KEY=re_7...
+EMAIL_FROM=no.reply@...
 
 # Frontend
 FRONTEND_URL=http://localhost:3000
