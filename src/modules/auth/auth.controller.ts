@@ -1,5 +1,6 @@
 import { Body, Controller, Get, HttpCode, HttpStatus, Post, UseGuards } from '@nestjs/common'
 import { ApiCreatedResponse } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
 import { UserItemListDTO } from '../users/users.dto'
 import { ForgotPasswordDTO, ResetPasswordDTO, SignInDTO, SignUpDTO } from './auth.dto'
@@ -24,6 +25,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   forgotPassword(@Body() data: ForgotPasswordDTO) {
     return this.authService.forgotPassword(data.email)
   }

@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
+import { APP_GUARD } from '@nestjs/core'
+import { ThrottlerModule } from '@nestjs/throttler'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
+import { CustomThrottlerGuard } from './common/guards/throttler/throttler.guard'
 import { CloudnaryService } from './common/services/cloudnary/cloudnary.service'
 import { RequestContextService } from './common/services/request-context/request-context.service'
 import appConfig from './config/app.config'
@@ -34,8 +37,23 @@ import { PrismaModule } from './prisma/prisma.module'
     McpModule,
     RagModule,
     ChatModule,
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: 10,
+      },
+    ]),
   ],
   controllers: [AppController],
-  providers: [AppService, RequestContextService, CloudnaryService],
+  providers: [
+    AppService,
+    RequestContextService,
+    CloudnaryService,
+    {
+      provide: APP_GUARD,
+      useClass: CustomThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}
