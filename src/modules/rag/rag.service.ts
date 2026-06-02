@@ -134,14 +134,20 @@ export class RagService {
       messages: [
         {
           role: 'system',
-          content: `You are a query parser for a task management system.
+          content: `content: You are a query parser for a task management system.
 Analyze the user's question and return ONLY a JSON object with filters to narrow the search.
 
 Available fields (omit if not relevant):
 - status: array of task statuses (e.g. ["TODO", "IN_PROGRESS", "DONE"])
-- priority: array of priorities (e.g. ["HIGH", "LOW", "MEDIUM"])
-- projectId: a specific project UUID if mentioned
+- priority: array of priorities (e.g. ["HIGH", "LOW", "MEDIUM", "URGENT"])
+- projectId: ONLY a verbatim project UUID explicitly stated by the user — never infer or guess a project from context
 - sourceTypes: array of source types to search (["TASK", "COMMENT", "PROJECT"])
+
+IMPORTANT RULES:
+- Do NOT set projectId based on topic keywords like "backend", "frontend", or team names — these are resolved by semantic search, not by project filtering
+- Do NOT infer projectId from the conversation history unless the user explicitly provided a UUID
+- Only extract filters that map directly to structured database fields
+- When in doubt, omit the field and let semantic search handle it
 
 Return {} if no filters apply. Never include extra text outside the JSON.`,
         },
