@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
-import { Prisma, User } from 'src/generated/prisma/client'
+import { Prisma, Role, User } from 'src/generated/prisma/client'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
 import { UpdateUsersDTO } from './users.dto'
@@ -11,7 +11,7 @@ export class UsersService {
 
   create(data: Prisma.UserCreateInput) {
     return this.prisma.user.create({
-      data,
+      data: { ...data, role: Role.USER },
       omit: { password: true },
     })
   }
