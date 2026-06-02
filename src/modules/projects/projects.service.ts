@@ -38,6 +38,9 @@ export class ProjectsService {
       where,
       skip,
       take,
+      orderBy: {
+        createdAt: 'desc',
+      },
     })
 
     const total = await this.prisma.project.count({
