@@ -46,7 +46,7 @@ export class MailService {
   async sendPasswordRequest(email: string, token: string) {
     const web_app_url = this.configService.getOrThrow<string>('app.web_app_url_base')
 
-    const url = `${web_app_url}/reset-password?token=${token}`
+    const url = `${web_app_url}/auth/reset-password?token=${token}`
     this.client.emit(SEND_PASSWORD_RESET, { email, url })
   }
 
