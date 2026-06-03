@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsNotEmpty, IsString } from 'class-validator'
 import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { TaskCommentDTO } from '../tasks/tasks.dto'
 
 export class ProjectDTO {
   @ApiProperty({ description: 'Project name' })
@@ -22,6 +23,7 @@ export class ProjectTaskDTO {
   @ApiProperty({ format: 'date-time' }) dueDate: string
   @ApiProperty({ format: 'date-time' }) createdAt: string
   @ApiProperty({ format: 'date-time' }) updatedAt: string
+  @ApiProperty({ type: [TaskCommentDTO] }) comments: TaskCommentDTO[]
 }
 
 export class ProjectItemListDTO {
