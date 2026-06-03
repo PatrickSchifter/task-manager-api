@@ -87,16 +87,22 @@ export class TasksService {
   }
 
   async update({ id, data, projectId }: { id: string; data: TasksRequestDTO; projectId: string }) {
+    const parseDueDate = (value?: string): Date | undefined => {
+      if (!value) return undefined
+      const datePart = value.split('T')[0]
+      const parsed = new Date(`${datePart}T00:00:00.000Z`)
+      return isNaN(parsed.getTime()) ? undefined : parsed
+    }
+
     const updated = await this.prisma.task.update({
-      where: {
-        id,
-        projectId,
-      },
+      where: { id, projectId },
       data: {
         ...data,
-        dueDate: data.dueDate ? new Date(`${data.dueDate}T00:00:00.000Z`) : undefined,
+        dueDate: parseDueDate(data.dueDate),
       },
-      include: { assignee: { select: { id: true, name: true, email: true, avatar: true } } },
+      include: {
+        assignee: { select: { id: true, name: true, email: true, avatar: true } },
+      },
     })
 
     this.ragService.dispatchTaskEmbedding(updated.id)
