@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsNotEmpty, IsString } from 'class-validator'
 import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { CollaboratorItemListDTO } from '../collaborators/collaborator.dto'
 import { TaskAssineeDTO, TaskCommentDTO } from '../tasks/tasks.dto'
 
 export class ProjectDTO {
@@ -38,4 +39,5 @@ export class ProjectItemListDTO {
 
 export class ProjectFullDTO extends ProjectItemListDTO {
   @ApiProperty({ type: [ProjectTaskDTO] }) tasks: ProjectTaskDTO[]
+  @ApiProperty({ type: [CollaboratorItemListDTO] }) collaborators: CollaboratorItemListDTO[]
 }

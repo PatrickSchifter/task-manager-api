@@ -82,6 +82,7 @@ export class ProjectsService {
             assignee: true,
           },
         },
+        collaborators: true,
         createdAt: true,
         updatedAt: true,
         name: true,
