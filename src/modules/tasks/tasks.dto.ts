@@ -78,6 +78,6 @@ export class TaskCommentDTO {
 
 export class TaskFullDTO extends TaskBaseDTO {
   @ApiProperty({ type: TaskAssineeDTO, nullable: true, required: false })
-  assinee?: TaskAssineeDTO | null
+  assignee?: TaskAssineeDTO | null
   @ApiProperty({ type: [TaskCommentDTO] }) comments: TaskCommentDTO[]
 }
