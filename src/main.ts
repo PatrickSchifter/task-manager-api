@@ -33,7 +33,7 @@ async function bootstrap() {
     )
     .build()
   const documentFactory = () => SwaggerModule.createDocument(app, config)
-  SwaggerModule.setup('api', app, documentFactory)
+  SwaggerModule.setup('api', app, documentFactory, { jsonDocumentUrl: 'api-json' })
 
   //Microservices
   const rmqUrl = configService.getOrThrow<string>('rmq.url')

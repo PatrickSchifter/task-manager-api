@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module'
 import { ChatModule } from './modules/chat/chat.module'
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module'
 import { CommentsModule } from './modules/comments/comments.module'
+import { DashboardModule } from './modules/dashboard/dashboard.module'
 import { MailModule } from './modules/mail/mail.module'
 import { McpModule } from './modules/mcp/mcp.module'
 import { ProjectsModule } from './modules/projects/projects.module'
@@ -37,6 +38,7 @@ import { PrismaModule } from './prisma/prisma.module'
     McpModule,
     RagModule,
     ChatModule,
+    DashboardModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',

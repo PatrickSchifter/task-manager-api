@@ -1,0 +1,48 @@
+import { ApiProperty } from '@nestjs/swagger'
+import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+
+export class DashboardStatsDTO {
+  @ApiProperty({ description: 'Tasks with status TODO or IN_PROGRESS' })
+  activeTasks: number
+
+  @ApiProperty({ description: 'Tasks completed (DONE) in the last 7 days' })
+  completedLast7Days: number
+
+  @ApiProperty({ description: 'Tasks with status IN_PROGRESS' })
+  inProgress: number
+}
+
+// ─── Recent Projects ──────────────────────────────────────────────────────────
+
+export class DashboardProjectDTO {
+  @ApiProperty() id: string
+  @ApiProperty() name: string
+  @ApiProperty() totalTasks: number
+  @ApiProperty() doneTasks: number
+}
+
+// ─── Upcoming Tasks ───────────────────────────────────────────────────────────
+
+export class DashboardTaskDTO {
+  @ApiProperty() id: string
+  @ApiProperty() title: string
+  @ApiProperty() project: string
+  @ApiProperty({ format: 'date-time', nullable: true }) dueDate: string | null
+  @ApiProperty({ enum: TaskPriority }) priority: TaskPriority
+  @ApiProperty({ enum: TaskStatus }) status: TaskStatus
+}
+
+// ─── Response ─────────────────────────────────────────────────────────────────
+
+export class DashboardSummaryDTO {
+  @ApiProperty({ type: DashboardStatsDTO })
+  stats: DashboardStatsDTO
+
+  @ApiProperty({ type: [DashboardProjectDTO] })
+  recentProjects: DashboardProjectDTO[]
+
+  @ApiProperty({ type: [DashboardTaskDTO] })
+  upcomingTasks: DashboardTaskDTO[]
+}
