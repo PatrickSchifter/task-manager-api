@@ -79,6 +79,7 @@ export class ProjectsService {
             priority: true,
             status: true,
             comments: true,
+            assignee: true,
           },
         },
         createdAt: true,
