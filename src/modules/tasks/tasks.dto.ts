@@ -73,7 +73,7 @@ export class TaskCommentDTO {
   @ApiProperty() id: string
   @ApiProperty() content: string
   @ApiProperty({ format: 'date-time' }) createdAt: Date
-  @ApiProperty({ type: TaskCommentUserDTO }) user: TaskCommentUserDTO
+  @ApiProperty({ type: TaskCommentUserDTO }) author: TaskCommentUserDTO
 }
 
 export class TaskFullDTO extends TaskBaseDTO {
