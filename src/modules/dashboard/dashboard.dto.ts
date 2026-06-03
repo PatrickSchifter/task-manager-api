@@ -19,6 +19,9 @@ export class DashboardStatsDTO {
 export class DashboardProjectDTO {
   @ApiProperty() id: string
   @ApiProperty() name: string
+}
+
+export class DashboardProjectTotalAndDoneDTO extends DashboardProjectDTO {
   @ApiProperty() totalTasks: number
   @ApiProperty() doneTasks: number
 }
@@ -28,7 +31,7 @@ export class DashboardProjectDTO {
 export class DashboardTaskDTO {
   @ApiProperty() id: string
   @ApiProperty() title: string
-  @ApiProperty() project: string
+  @ApiProperty() project: DashboardProjectDTO
   @ApiProperty({ format: 'date-time', nullable: true }) dueDate: string | null
   @ApiProperty({ enum: TaskPriority }) priority: TaskPriority
   @ApiProperty({ enum: TaskStatus }) status: TaskStatus
@@ -40,8 +43,8 @@ export class DashboardSummaryDTO {
   @ApiProperty({ type: DashboardStatsDTO })
   stats: DashboardStatsDTO
 
-  @ApiProperty({ type: [DashboardProjectDTO] })
-  recentProjects: DashboardProjectDTO[]
+  @ApiProperty({ type: [DashboardProjectTotalAndDoneDTO] })
+  recentProjects: DashboardProjectTotalAndDoneDTO[]
 
   @ApiProperty({ type: [DashboardTaskDTO] })
   upcomingTasks: DashboardTaskDTO[]

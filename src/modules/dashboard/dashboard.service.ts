@@ -80,7 +80,7 @@ export class DashboardService {
             dueDate: true,
             priority: true,
             status: true,
-            project: { select: { name: true } },
+            project: { select: { name: true, id: true } },
           },
         }),
       ])
@@ -102,7 +102,7 @@ export class DashboardService {
       upcomingTasks: upcomingTasks.map((t) => ({
         id: t.id,
         title: t.title,
-        project: t.project.name,
+        project: t.project,
         dueDate: t.dueDate?.toISOString() ?? null,
         priority: t.priority,
         status: t.status,
