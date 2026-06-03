@@ -82,7 +82,7 @@ export class ProjectsService {
             assignee: true,
           },
         },
-        collaborators: true,
+        collaborators: { select: { user: { select: { name: true, email: true } }, role: true } },
         createdAt: true,
         updatedAt: true,
         name: true,
