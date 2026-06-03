@@ -46,12 +46,12 @@ export class CollaboratorsService {
   }
 
   async create({ data, projectId }: { projectId: string; data: AddCollaboratorDTO }) {
-    const user = await this.prisma.user.findUnique({ where: { id: data.userId } })
+    const user = await this.prisma.user.findUnique({ where: { email: data.email } })
 
     if (!user) throw new NotFoundException('User specified not found')
 
     return this.prisma.projectCollaborator.create({
-      data: { ...data, projectId },
+      data: { userId: user.id, role: data.role ? data.role : CollaboratorRole.EDITOR, projectId },
       include: userAttributes,
     })
   }

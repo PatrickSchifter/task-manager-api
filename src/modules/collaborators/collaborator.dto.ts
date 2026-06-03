@@ -6,7 +6,7 @@ export class AddCollaboratorDTO {
   @ApiProperty({ description: 'User ID to add as collaborator' })
   @IsString()
   @IsNotEmpty()
-  userId: string
+  email: string
 
   @ApiProperty({
     description: 'Collaborator role',
