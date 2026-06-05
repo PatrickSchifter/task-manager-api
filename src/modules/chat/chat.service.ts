@@ -1,19 +1,32 @@
 import { Inject, Injectable } from '@nestjs/common'
+import { JwtService } from '@nestjs/jwt'
 import { ClientProxy } from '@nestjs/microservices'
 import { RequestContextService } from 'src/common/services/request-context/request-context.service'
-import { CHAT_SERVICE, PROCESS_CHAT_MESSAGE } from 'src/consts'
+import { CHAT_SERVICE, PROCESS_CHAT_MESSAGE, WS_TICKET_PURPOSE } from 'src/consts'
 import { Prisma } from 'src/generated/prisma/client'
 import { MessageStatus } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { ChatMessageDTO } from './chat.dto'
+import { ChatGateway } from './chat.gateway'
 
 @Injectable()
 export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly requestContext: RequestContextService,
+    private readonly chatGateway: ChatGateway,
+    private readonly jwtService: JwtService,
     @Inject(CHAT_SERVICE) private readonly chatClient: ClientProxy,
   ) {}
+
+  createWsTicket() {
+    const userId = this.requestContext.getUserId()
+    const ticket = this.jwtService.sign(
+      { sub: userId, purpose: WS_TICKET_PURPOSE },
+      { expiresIn: '60s' },
+    )
+    return { ticket, expiresIn: 60 }
+  }
 
   async enqueue(data: ChatMessageDTO) {
     const userId = this.requestContext.getUserId()
@@ -34,27 +47,33 @@ export class ChatService {
   }
 
   async setProcessing(id: string, filters: Prisma.InputJsonValue) {
-    return this.prisma.chatMessage.update({
+    const updated = await this.prisma.chatMessage.update({
       where: { id },
       data: {
         status: MessageStatus.PROCESSING,
         filters,
       },
     })
+    this.chatGateway.emitStatus(updated.userId, updated)
+    return updated
   }
 
   async setDelivered(id: string, response: string) {
-    return this.prisma.chatMessage.update({
+    const updated = await this.prisma.chatMessage.update({
       where: { id },
       data: { status: MessageStatus.DELIVERED, response },
     })
+    this.chatGateway.emitStatus(updated.userId, updated)
+    return updated
   }
 
   async setFailed(id: string) {
-    return this.prisma.chatMessage.update({
+    const updated = await this.prisma.chatMessage.update({
       where: { id },
       data: { status: MessageStatus.FAILED },
     })
+    this.chatGateway.emitStatus(updated.userId, updated)
+    return updated
   }
 
   findById(id: string) {

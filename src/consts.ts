@@ -19,3 +19,6 @@ export const DELETE_TASK_EMBEDDING = 'DELETE_TASK_EMBEDDING'
 export const CHAT_QUEUE = 'chat_queue'
 export const CHAT_SERVICE = 'CHAT_SERVICE'
 export const PROCESS_CHAT_MESSAGE = 'process_chat_message'
+
+export const CHAT_STATUS_EVENT = 'chat:status'
+export const WS_TICKET_PURPOSE = 'ws'

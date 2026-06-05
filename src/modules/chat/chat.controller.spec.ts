@@ -1,14 +1,14 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { ChatController } from './chat.controller';
-import { ChatService } from './chat.service';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard';
-import { Reflector } from '@nestjs/core';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { ChatMessageDTO, ChatMessagesQueryDTO } from './chat.dto';
+import { Reflector } from '@nestjs/core'
+import { Test, TestingModule } from '@nestjs/testing'
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
+import { PrismaService } from 'src/prisma/prisma.service'
+import { ChatController } from './chat.controller'
+import { ChatMessageDTO, ChatMessagesQueryDTO } from './chat.dto'
+import { ChatService } from './chat.service'
 
 describe('ChatController', () => {
-  let controller: ChatController;
-  let chatService: ChatService;
+  let controller: ChatController
+  let chatService: ChatService
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -18,6 +18,7 @@ describe('ChatController', () => {
           provide: ChatService,
           useValue: {
             enqueue: jest.fn(),
+            createWsTicket: jest.fn(),
             findById: jest.fn(),
             findAll: jest.fn(),
           },
@@ -38,64 +39,76 @@ describe('ChatController', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: jest.fn().mockReturnValue(true) })
-      .compile();
+      .compile()
 
-    controller = module.get<ChatController>(ChatController);
-    chatService = module.get<ChatService>(ChatService);
+    controller = module.get<ChatController>(ChatController)
+    chatService = module.get<ChatService>(ChatService)
 
-    jest.clearAllMocks();
-  });
+    jest.clearAllMocks()
+  })
 
   it('should be defined', () => {
-    expect(controller).toBeDefined();
-  });
+    expect(controller).toBeDefined()
+  })
 
   describe('enqueue', () => {
     it('should call chatService.enqueue and return the result', async () => {
-      const dto: ChatMessageDTO = { message: 'hello' };
-      const serviceResult = { id: 'msg1', userId: 'user1', content: 'hello', status: 'QUEUED' };
-      jest.spyOn(chatService, 'enqueue').mockResolvedValue(serviceResult as any);
+      const dto: ChatMessageDTO = { message: 'hello' }
+      const serviceResult = { id: 'msg1', userId: 'user1', content: 'hello', status: 'QUEUED' }
+      jest.spyOn(chatService, 'enqueue').mockResolvedValue(serviceResult as any)
 
-      const result = await controller.enqueue(dto);
+      const result = await controller.enqueue(dto)
 
-      expect(chatService.enqueue).toHaveBeenCalledWith(dto);
-      expect(result).toEqual(serviceResult);
-    });
-  });
+      expect(chatService.enqueue).toHaveBeenCalledWith(dto)
+      expect(result).toEqual(serviceResult)
+    })
+  })
+
+  describe('createWsTicket', () => {
+    it('should call chatService.createWsTicket and return the result', () => {
+      const serviceResult = { ticket: 'signed-ticket', expiresIn: 60 }
+      jest.spyOn(chatService, 'createWsTicket').mockReturnValue(serviceResult)
+
+      const result = controller.createWsTicket()
+
+      expect(chatService.createWsTicket).toHaveBeenCalled()
+      expect(result).toEqual(serviceResult)
+    })
+  })
 
   describe('findById', () => {
     it('should call chatService.findById and return the result', async () => {
-      const serviceResult = { id: 'msg1', content: 'hello' };
-      jest.spyOn(chatService, 'findById').mockResolvedValue(serviceResult as any);
+      const serviceResult = { id: 'msg1', content: 'hello' }
+      jest.spyOn(chatService, 'findById').mockResolvedValue(serviceResult as any)
 
-      const result = await controller.findById('msg1');
+      const result = await controller.findById('msg1')
 
-      expect(chatService.findById).toHaveBeenCalledWith('msg1');
-      expect(result).toEqual(serviceResult);
-    });
-  });
+      expect(chatService.findById).toHaveBeenCalledWith('msg1')
+      expect(result).toEqual(serviceResult)
+    })
+  })
 
   describe('findAll', () => {
     it('should call chatService.findAll with default limit', async () => {
-      const query: ChatMessagesQueryDTO = {};
-      const serviceResult = [{ id: 'msg1', content: 'hello' }];
-      jest.spyOn(chatService, 'findAll').mockResolvedValue(serviceResult as any);
+      const query: ChatMessagesQueryDTO = {}
+      const serviceResult = [{ id: 'msg1', content: 'hello' }]
+      jest.spyOn(chatService, 'findAll').mockResolvedValue(serviceResult as any)
 
-      const result = await controller.findAll(query);
+      const result = await controller.findAll(query)
 
-      expect(chatService.findAll).toHaveBeenCalledWith(20);
-      expect(result).toEqual(serviceResult);
-    });
+      expect(chatService.findAll).toHaveBeenCalledWith(20)
+      expect(result).toEqual(serviceResult)
+    })
 
     it('should call chatService.findAll with custom limit', async () => {
-      const query: ChatMessagesQueryDTO = { limit: 5 };
-      const serviceResult = [{ id: 'msg1', content: 'hello' }];
-      jest.spyOn(chatService, 'findAll').mockResolvedValue(serviceResult as any);
+      const query: ChatMessagesQueryDTO = { limit: 5 }
+      const serviceResult = [{ id: 'msg1', content: 'hello' }]
+      jest.spyOn(chatService, 'findAll').mockResolvedValue(serviceResult as any)
 
-      const result = await controller.findAll(query);
+      const result = await controller.findAll(query)
 
-      expect(chatService.findAll).toHaveBeenCalledWith(5);
-      expect(result).toEqual(serviceResult);
-    });
-  });
-});
+      expect(chatService.findAll).toHaveBeenCalledWith(5)
+      expect(result).toEqual(serviceResult)
+    })
+  })
+})

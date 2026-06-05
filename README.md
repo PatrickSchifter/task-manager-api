@@ -5,7 +5,7 @@
 ### A task management SaaS you can actually *talk to*
 
 [![Live Demo](https://img.shields.io/badge/live-tasks.solutlabs.com.br-2ea44f?style=flat-square)](https://tasks.solutlabs.com.br)
-[![Tests](https://img.shields.io/badge/tests-254%20passing-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-261%20passing-brightgreen?style=flat-square)](#tests)
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen?style=flat-square)](#tests)
 [![NestJS](https://img.shields.io/badge/NestJS-11-e0234e?style=flat-square&logo=nestjs)](https://nestjs.com)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](#license)
@@ -28,7 +28,7 @@ Task Manager is a full SaaS platform where teams organize projects, tasks, and c
 
 …and get a real, accurate answer based on **your actual data** — not a generic chatbot guess.
 
-It's **live in production**, runs on cloud infrastructure with automated deployments, and is backed by **254 automated tests (95% coverage)**.
+It's **live in production**, runs on cloud infrastructure with automated deployments, and is backed by **261 automated tests (95% coverage)**.
 
 ### Why this project is interesting
 
@@ -37,7 +37,7 @@ It's **live in production**, runs on cloud infrastructure with automated deploym
 | 🤖 **Talk to your data** | A real AI assistant that answers questions about your own projects and tasks — grounded in your data, with zero made-up answers. |
 | ⚡ **Built to scale** | Heavy AI work runs in the background through message queues, so the app stays instant and responsive no matter what the AI is doing. |
 | ☁️ **Actually shipped** | Not a toy demo — it's deployed, monitored, and reachable at a real domain with automated build-and-deploy on every push. |
-| 🧪 **Engineered carefully** | 254 tests covering 95% of the codebase. The business logic that matters is tested end to end. |
+| 🧪 **Engineered carefully** | 261 tests covering 95% of the codebase. The business logic that matters is tested end to end. |
 | 🔒 **Secure by design** | Every answer respects who you are — you can never see data from projects you're not part of, even by accident. |
 
 ### What this project demonstrates
@@ -147,9 +147,19 @@ The top results are assembled into a rich context block and sent to GPT-4o mini 
 
 The model is instructed to answer **only** based on the provided context — no hallucinations, no invented data. The response is persisted with status `DELIVERED`.
 
-**Polling for the result**
+**Real-time delivery (WebSocket) — with polling fallback**
 
-Since processing is async, the client polls `GET /v1/chat/:messageId` to check the status and retrieve the answer when ready.
+Processing is async, so the result is pushed to the client **the moment it's ready**. A **Socket.IO gateway** (`ChatGateway`) runs on the same NestJS server: every status transition (`PROCESSING → DELIVERED`/`FAILED`) persisted by `ChatService` is emitted as a `chat:status` event to that user's private room (`user:<id>`), carrying the full message record. No client-side polling loop in the happy path.
+
+The socket handshake is authenticated with a **short-lived ticket** rather than the session JWT: the client calls `POST /v1/chat/ws-ticket` (bearer-authenticated) to mint a 60s, single-purpose token, then connects with it (`io(url, { auth: { ticket } })`). The gateway verifies the ticket on connection and drops the socket if it's missing, expired, or has the wrong purpose.
+
+```
+WS connect  → auth: { ticket }          (gateway validates → joins room user:<id>)
+event chat:status  → { id, status: "PROCESSING", ... }
+event chat:status  → { id, status: "DELIVERED", response: "You have 3 pending tasks: ..." }
+```
+
+**Polling stays as an automatic fallback.** If the client can't establish the socket (or it drops while a message is pending), it transparently falls back to polling `GET /v1/chat/:messageId` until the answer is `DELIVERED`/`FAILED` — so the REST endpoint below remains fully supported.
 
 ```
 GET /v1/chat/:messageId
@@ -170,6 +180,7 @@ Every state transition is persisted to the `chat_messages` table, giving full ob
 | Design choice | Why it matters |
 |---|---|
 | **Async queue** | The API never blocks on AI calls. A slow OpenAI response doesn't affect other users or endpoints |
+| **Real-time push** | Status transitions are emitted over a WebSocket the instant they're persisted — no client polling loop in the happy path, with HTTP polling kept as a transparent fallback |
 | **Two-stage AI** | The first AI call converts vague natural language into precise database filters. The second AI call generates a grounded answer from the right data |
 | **Hybrid search** | Relational pre-filtering eliminates irrelevant embeddings before vector comparison, improving both precision and performance |
 | **Conversational context** | The last 5 delivered messages are injected into both AI calls, enabling multi-turn interactions and implicit references without polluting the vector search query |
@@ -228,8 +239,12 @@ POST /v1/chat
                         │
                         ▼
               Persist response (DELIVERED)
+                        │
+                        ▼
+              ChatGateway emits chat:status → room user:<id>   ← real-time push (Socket.IO)
 
-GET /v1/chat/:messageId  ← client polls for result
+WS  chat:status          ← client receives status in real time (primary)
+GET /v1/chat/:messageId  ← client polls for result (fallback if socket is down)
 GET /v1/chat?limit=20    ← client fetches conversation history
 ```
 
@@ -290,6 +305,8 @@ Full Swagger/OpenAPI documentation auto-generated and served at `/api`.
 
 **Backend:** NestJS · TypeScript · Prisma · PostgreSQL · pgvector
 
+**Real-time:** WebSockets (`@nestjs/websockets` · `@nestjs/platform-socket.io` · Socket.IO) — ticket-authenticated chat delivery
+
 **AI:** OpenAI API (`text-embedding-3-small` · `gpt-4o-mini`)
 
 **Infrastructure:** Oracle Cloud Infrastructure · PM2 · RabbitMQ
@@ -313,6 +330,22 @@ chat_queue       → RagConsumer       → 2x OpenAI calls   → response persis
 ```
 
 This keeps API latency low and makes each concern independently scalable and fault-isolated.
+
+### Real-time Delivery (WebSocket)
+
+Chat answers are delivered to the client in real time over **Socket.IO**, with HTTP polling kept as a fallback. Because the `RagConsumer` and the `ChatGateway` live in the **same NestJS process**, status updates are pushed directly when they're persisted — no extra notification queue is needed:
+
+```
+ChatService.setProcessing / setDelivered / setFailed   (called by RagConsumer)
+        │  persist transition to DB
+        ▼
+ChatGateway.emitStatus(userId, message)
+        │  Socket.IO → room "user:<id>"
+        ▼
+Connected client receives `chat:status` event
+```
+
+Connections are authenticated with a **short-lived, single-purpose ticket** (60s, `purpose: "ws"`) minted at `POST /v1/chat/ws-ticket` from the session JWT — so the long-lived JWT never has to be exposed to client JavaScript for the handshake. Each socket joins a private `user:<id>` room, so events are scoped per user.
 
 ### Production Deployment
 
@@ -354,6 +387,7 @@ src/
 │   └── chat/
 │       ├── chat.controller.ts
 │       ├── chat.service.ts
+│       ├── chat.gateway.ts      # Socket.IO gateway — real-time chat:status push
 │       ├── chat.dto.ts
 │       └── chat.module.ts
 └── generated/
@@ -456,7 +490,15 @@ POST /v1/chat
 { "message": "What are my high priority tasks this week?" }
 → { "id": "uuid", "status": "QUEUED", ... }
 
-# Poll for the result
+# Mint a short-lived ticket for the WebSocket handshake (bearer-authenticated)
+POST /v1/chat/ws-ticket
+→ { "ticket": "<jwt>", "expiresIn": 60 }
+
+# Receive the result in real time (primary): connect with the ticket and listen
+WS connect  → auth: { ticket }
+event "chat:status"  → { "id": "uuid", "status": "DELIVERED", "response": "You have 2 high priority tasks: ..." }
+
+# Poll for the result (fallback, if the socket is unavailable)
 GET /v1/chat/:id
 → { "status": "DELIVERED", "response": "You have 2 high priority tasks: ..." }
 
@@ -490,13 +532,13 @@ pnpm prisma:generate  # regenerate Prisma client
 pnpm test:cov
 ```
 
-**254 tests across 39 suites — all passing.**
+**261 tests across 40 suites — all passing.**
 
 | Statements | Branches | Functions | Lines |
 |---|---|---|---|
 | 95.0% | 77.9% | 96.2% | 95.4% |
 
-The full business logic (auth, tasks, projects, comments, collaborators, tags, dashboard, embedding, RAG, mail, guards) is covered with unit and integration tests. Controllers are tested end to end with `supertest` against the real Nest application.
+The full business logic (auth, tasks, projects, comments, collaborators, tags, dashboard, embedding, RAG, the chat WebSocket gateway, mail, guards) is covered with unit and integration tests. Controllers are tested end to end with `supertest` against the real Nest application.
 
 ---
 
@@ -525,8 +567,11 @@ POST   /v1/tasks/:id/comments
 DELETE /v1/comments/:id
 
 POST   /v1/chat              ← enqueue message
-GET    /v1/chat/:messageId   ← poll for result
+POST   /v1/chat/ws-ticket    ← mint short-lived WebSocket ticket
+GET    /v1/chat/:messageId   ← poll for result (fallback)
 GET    /v1/chat              ← conversation history
+
+WS     chat:status           ← real-time delivery (primary), room user:<id>
 ```
 
 Full Swagger documentation at `/api` after starting the server.
@@ -536,7 +581,7 @@ Full Swagger documentation at `/api` after starting the server.
 ## Roadmap
 
 - [ ] Separate RabbitMQ consumer process (independent scaling)
-- [ ] WebSocket notification when chat message is delivered (replace polling)
+- [x] WebSocket delivery of chat status (primary path; HTTP polling kept as fallback)
 - [ ] Health checks with `@nestjs/terminus`
 - [x] Rate limiting on auth and chat routes
 - [ ] Correlation ID tracing across async flows

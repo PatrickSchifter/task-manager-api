@@ -15,7 +15,12 @@ import {
 import { ApiBearerAuth, ApiCreatedResponse, ApiResponse } from '@nestjs/swagger'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
 import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
-import { ChatMessageDTO, ChatMessageResponseDTO, ChatMessagesQueryDTO } from './chat.dto'
+import {
+  ChatMessageDTO,
+  ChatMessageResponseDTO,
+  ChatMessagesQueryDTO,
+  WsTicketResponseDTO,
+} from './chat.dto'
 import { ChatService } from './chat.service'
 
 @Controller({ path: 'chat', version: '1' })
@@ -30,6 +35,13 @@ export class ChatController {
   @HttpCode(HttpStatus.CREATED)
   enqueue(@Body() data: ChatMessageDTO) {
     return this.chatService.enqueue(data)
+  }
+
+  @Post('ws-ticket')
+  @ApiCreatedResponse({ type: WsTicketResponseDTO })
+  @HttpCode(HttpStatus.CREATED)
+  createWsTicket() {
+    return this.chatService.createWsTicket()
   }
 
   @Get(':messageId')

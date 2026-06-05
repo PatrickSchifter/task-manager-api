@@ -34,8 +34,10 @@
     "@nestjs/microservices": "^11.1.19",
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/platform-socket.io": "^11.1.24",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/throttler": "^6.5.0",
+    "@nestjs/websockets": "^11.1.24",
     "@prisma/adapter-pg": "^7.4.1",
     "@prisma/client": "7.8.0",
     "amqp-connection-manager": "^5.0.0",
@@ -53,7 +55,8 @@
     "pgvector": "^0.2.1",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.12.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",

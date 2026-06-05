@@ -21,6 +21,14 @@ export class ChatMessageResponseDTO {
   @ApiProperty({ format: 'date-time' }) updatedAt: string
 }
 
+export class WsTicketResponseDTO {
+  @ApiProperty({ description: 'Short-lived ticket for the WebSocket handshake' })
+  ticket: string
+
+  @ApiProperty({ description: 'Ticket lifetime in seconds' })
+  expiresIn: number
+}
+
 export class ChatMessagesQueryDTO {
   @ApiProperty({ description: 'Number of last messages to return', default: 20, required: false })
   @IsOptional()
