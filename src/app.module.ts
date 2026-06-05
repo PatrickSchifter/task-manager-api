@@ -43,7 +43,11 @@ import { PrismaModule } from './prisma/prisma.module'
       {
         name: 'default',
         ttl: 60_000,
-        limit: 10,
+        // Limite global por usuário (ver CustomThrottlerGuard). 10/min era
+        // baixo demais para uma SPA: navegar no kanban já dispara vários GETs
+        // (lista de tasks, comentários, refetch) e estourava em segundos.
+        // Rotas sensíveis têm override próprio (login: 3/min, update: 240/min).
+        limit: 100,
       },
     ]),
   ],
