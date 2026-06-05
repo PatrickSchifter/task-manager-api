@@ -8,6 +8,11 @@ import { paginate, paginateOutput } from 'src/utils/pagination.utils'
 import { RagService } from '../rag/rag.service'
 import { ProjectDTO } from './projects.dto'
 
+type ProjectListItem = Project & {
+  role: CollaboratorRole
+  membersCount: number
+}
+
 @Injectable()
 export class ProjectsService {
   constructor(
@@ -16,7 +21,7 @@ export class ProjectsService {
     private readonly ragService: RagService,
   ) {}
 
-  async findAll(query?: QueryPaginationDTO): Promise<PaginatedResponseDTO<Project>> {
+  async findAll(query?: QueryPaginationDTO): Promise<PaginatedResponseDTO<ProjectListItem>> {
     const userId = this.requestContext.getUserId()
 
     const { skip, take } = paginate(query)
@@ -41,13 +46,28 @@ export class ProjectsService {
       orderBy: {
         createdAt: 'desc',
       },
+      include: {
+        _count: { select: { collaborators: true } },
+        collaborators: {
+          where: { userId },
+          select: { role: true },
+        },
+      },
     })
 
     const total = await this.prisma.project.count({
       where,
     })
 
-    return paginateOutput({ data: projects, total, query })
+    const data: ProjectListItem[] = projects.map(({ _count, collaborators, ...project }) => ({
+      ...project,
+      membersCount: _count.collaborators,
+      role:
+        collaborators[0]?.role ??
+        (project.createdById === userId ? CollaboratorRole.OWNER : CollaboratorRole.VIEWER),
+    }))
+
+    return paginateOutput({ data, total, query })
   }
 
   findById(id: string) {

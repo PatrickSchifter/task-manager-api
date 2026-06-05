@@ -1,5 +1,6 @@
 import { faker } from '@faker-js/faker'
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
+import { CollaboratorRole } from 'src/generated/prisma/enums'
 
 export const mockedProjects = faker.helpers.multiple(
   () => {
@@ -10,6 +11,8 @@ export const mockedProjects = faker.helpers.multiple(
       createdAt: new Date(),
       updatedAt: new Date(),
       createdById: 'user-1',
+      role: CollaboratorRole.OWNER,
+      membersCount: 1,
     }
   },
   { count: 10 },

@@ -59,8 +59,16 @@ describe('ProjectsService', () => {
   })
 
   it('should be able to return paginated list of projects', async () => {
+    // findAll enriquece cada projeto com role + membersCount a partir do
+    // _count e dos collaborators retornados pelo prisma.
+    const prismaProjects = mockedProjects.map(({ role, membersCount, ...project }) => ({
+      ...project,
+      _count: { collaborators: membersCount },
+      collaborators: [{ role }],
+    }))
+
     // criando o mock e especificando o retorno das funções
-    jest.spyOn(prisma.project, 'findMany').mockResolvedValue(mockedProjects)
+    jest.spyOn(prisma.project, 'findMany').mockResolvedValue(prismaProjects as never)
     jest.spyOn(prisma.project, 'count').mockResolvedValue(mockedProjects.length)
 
     //chamada da função
@@ -68,7 +76,7 @@ describe('ProjectsService', () => {
 
     //comparações
     expect(result).toEqual(
-      paginateOutput<Project>({
+      paginateOutput({
         data: mockedProjects,
         total: mockedProjects.length,
         query: mockPaginationQuery,

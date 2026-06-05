@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { IsNotEmpty, IsString } from 'class-validator'
-import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { CollaboratorRole, TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
 import { CollaboratorItemListDTO } from '../collaborators/collaborator.dto'
 import { TaskAssineeDTO, TaskCommentDTO } from '../tasks/tasks.dto'
 
@@ -37,6 +37,13 @@ export class ProjectItemListDTO {
   @ApiProperty() description: string
   @ApiProperty({ format: 'date-time' }) createdAt: string
   @ApiProperty({ format: 'date-time' }) updatedAt: string
+  @ApiProperty({
+    enum: CollaboratorRole,
+    description: 'Role of the current user within the project',
+  })
+  role: CollaboratorRole
+  @ApiProperty({ description: 'Number of members (collaborators) in the project' })
+  membersCount: number
 }
 
 export class ProjectFullDTO extends ProjectItemListDTO {
