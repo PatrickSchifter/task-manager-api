@@ -94,6 +94,10 @@ model Task {
   dueDate       DateTime?
   projectId     String
   assigneeId    String?
+  // Subtarefa: auto-relação 1 nível. `parentId` null = tarefa top-level.
+  // A regra de "1 nível" (uma subtarefa não pode ter subtarefas) é validada na
+  // aplicação (TasksService); o banco só garante a integridade do vínculo.
+  parentId      String?
   // Fractional index key (ordenação lexicográfica). A coluna usa COLLATE "C"
   // no banco para que a ordenação por bytes case com a das chaves geradas.
   order         String @default("a0")
@@ -103,10 +107,18 @@ model Task {
 
   project       Project @relation(fields: [projectId], references: [id])
   assignee      User? @relation("AssignedTasks", fields: [assigneeId], references: [id])
+  // onDelete: Cascade → apagar a tarefa-pai apaga as subtarefas no próprio banco.
+  parent        Task? @relation("Subtasks", fields: [parentId], references: [id], onDelete: Cascade)
+  subtasks      Task[] @relation("Subtasks")
   comments      Comment[]
   tags          TaskTag[]
 
-  @@unique([projectId, status, order])
+  // Ordenação fracionária é escopada por (projectId, status, parentId): cada
+  // "coluna" de subtarefas de um pai tem seu próprio espaço de `order`. O índice
+  // usa NULLS NOT DISTINCT (ver migration) para manter a garantia também no
+  // nível top-level (parentId = null), que o Postgres trataria como distinto.
+  @@unique([projectId, status, parentId, order])
+  @@index([parentId])
 }
 
 // Tags são globais por usuário (catálogo do dono), reutilizadas entre projetos.

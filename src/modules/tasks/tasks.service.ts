@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
 import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { TaskStatus } from 'src/generated/prisma/enums'
@@ -20,10 +20,57 @@ const taskInclude = {
   ...tagsSelect,
 }
 
+const assigneeSelect = {
+  assignee: { select: { id: true, name: true, email: true, avatar: true } },
+}
+
+// Campos de um item de lista (Kanban / lista de subtarefas). Sem o relacionamento
+// `subtasks` aninhado — quem precisa do progresso adiciona `subtaskStatusSelect`.
+const listItemSelect = {
+  id: true,
+  title: true,
+  description: true,
+  status: true,
+  priority: true,
+  order: true,
+  parentId: true,
+  dueDate: true,
+  ...assigneeSelect,
+  ...tagsSelect,
+  createdAt: true,
+  updatedAt: true,
+} as const
+
+// Traz só o status das subtarefas, o suficiente para calcular o progresso "3/5".
+const subtaskStatusSelect = {
+  subtasks: { select: { status: true } },
+}
+
 type TaskTagRow = { tag: { id: string; name: string; color: string } }
 
 function flattenTags<T extends { tags: TaskTagRow[] }>(task: T) {
   return { ...task, tags: task.tags.map((t) => t.tag) }
+}
+
+// Calcula { done, total } a partir das subtarefas (só status).
+function subtaskProgress(subtasks: { status: TaskStatus }[]) {
+  return {
+    done: subtasks.filter((s) => s.status === TaskStatus.DONE).length,
+    total: subtasks.length,
+  }
+}
+
+// Mapeia um item de lista que traz `subtasks: {status}[]`: achata tags e troca o
+// array de subtarefas pelo contador `subtaskProgress`.
+function toListItemWithProgress<
+  T extends { tags: TaskTagRow[]; subtasks: { status: TaskStatus }[] },
+>(task: T) {
+  const { subtasks, tags, ...rest } = task
+  return {
+    ...rest,
+    tags: tags.map((t) => t.tag),
+    subtaskProgress: subtaskProgress(subtasks),
+  }
 }
 
 const parseDueDate = (value?: string): Date | undefined => {
@@ -45,11 +92,17 @@ export class TasksService {
   async create({ data, projectId }: { data: TasksRequestDTO; projectId: string }) {
     // Uma nova task sempre entra no topo da sua coluna: gera uma chave fracionária
     // anterior à do primeiro item da coluna. `position` do payload é ignorado aqui.
-    const { position: _ignoredPosition, tags: tagNames, ...rest } = data
+    const { position: _ignoredPosition, tags: tagNames, parentId, ...rest } = data
     const status = data.status ?? TaskStatus.TODO
 
+    // Regra de 1 nível: se há parentId, o pai precisa existir no mesmo projeto e
+    // não pode ser ele mesmo uma subtarefa.
+    if (parentId) await this.assertValidParent(parentId, projectId)
+
+    // Ordenação fracionária escopada por (projectId, status, parentId): subtarefas
+    // de um pai têm seu próprio espaço de chaves, separado das tarefas top-level.
     const first = await this.prisma.task.findFirst({
-      where: { projectId, status },
+      where: { projectId, status, parentId: parentId ?? null },
       orderBy: { order: 'asc' },
       select: { order: true },
     })
@@ -60,6 +113,7 @@ export class TasksService {
         ...rest,
         status,
         order,
+        parentId: parentId ?? null,
         dueDate: parseDueDate(data.dueDate),
         projectId,
         ...(await this.buildTagsWrite(tagNames, { replace: false })),
@@ -68,8 +122,25 @@ export class TasksService {
     })
 
     this.ragService.dispatchTaskEmbedding(task.id)
+    // Subtarefa criada: o embedding do pai resume as subtarefas/progresso, então
+    // reindexamos o pai para o RAG responder "o que falta na tarefa X?".
+    if (parentId) this.ragService.dispatchTaskEmbedding(parentId)
 
     return flattenTags(task)
+  }
+
+  // Valida a regra de 1 nível para um parentId informado na criação de subtarefa.
+  private async assertValidParent(parentId: string, projectId: string) {
+    const parent = await this.prisma.task.findFirst({
+      where: { id: parentId, projectId },
+      select: { parentId: true },
+    })
+    if (!parent) throw new NotFoundException('Parent task not found')
+    if (parent.parentId) {
+      throw new BadRequestException(
+        'Uma subtarefa não pode ter subtarefas (limite de 1 nível de aninhamento).',
+      )
+    }
   }
 
   async findAllByProjectId({
@@ -80,7 +151,9 @@ export class TasksService {
     query?: QueryPaginationDTO
   }): Promise<PaginatedResponseDTO<TaskItemListDTO>> {
     const { skip, take } = paginate(query)
-    const where = { projectId }
+    // Apenas tarefas top-level no Kanban: subtarefas (parentId != null) são
+    // gerenciadas dentro da página de detalhe do pai, não como cards próprios.
+    const where = { projectId, parentId: null }
 
     const tasks = await this.prisma.task.findMany({
       where,
@@ -88,29 +161,14 @@ export class TasksService {
       take,
       orderBy: [{ status: 'asc' }, { order: 'asc' }],
       select: {
-        id: true,
-        title: true,
-        description: true,
-        status: true,
-        priority: true,
-        order: true,
-        dueDate: true,
-        assignee: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-          },
-        },
-        ...tagsSelect,
-        createdAt: true,
-        updatedAt: true,
+        ...listItemSelect,
+        // Status das subtarefas → indicador de progresso "3/5" no card.
+        ...subtaskStatusSelect,
       },
     })
     const total = await this.prisma.task.count({ where })
 
-    return paginateOutput({ data: tasks.map(flattenTags), total, query })
+    return paginateOutput({ data: tasks.map(toListItemWithProgress), total, query })
   }
 
   async findById({ id, projectId }: { id: string; projectId: string }) {
@@ -122,26 +180,58 @@ export class TasksService {
           include: { author: { select: { id: true, name: true, email: true, avatar: true } } },
         },
         ...tagsSelect,
+        // Subtarefas completas (ordenadas) para a seção de subtarefas do detalhe.
+        subtasks: {
+          orderBy: { order: 'asc' },
+          select: { ...listItemSelect },
+        },
       },
     })
 
-    return task ? flattenTags(task) : task
+    if (!task) return task
+
+    const { subtasks, ...taskRest } = task
+    return {
+      ...flattenTags(taskRest),
+      subtasks: subtasks.map(flattenTags),
+      subtaskProgress: subtaskProgress(subtasks),
+    }
+  }
+
+  // Lista as subtarefas de uma tarefa (ordenadas por `order`). A validação de
+  // acesso (projeto + task) é feita pelo ValidateResourcesIdsInterceptor.
+  async findSubtasks({ taskId, projectId }: { taskId: string; projectId: string }) {
+    const subtasks = await this.prisma.task.findMany({
+      where: { projectId, parentId: taskId },
+      orderBy: { order: 'asc' },
+      select: { ...listItemSelect },
+    })
+    return subtasks.map(flattenTags)
   }
 
   async update({ id, data, projectId }: { id: string; data: TasksRequestDTO; projectId: string }) {
-    const { position, tags: tagNames, ...rest } = data
+    // `parentId` é ignorado no update: reparentar não é suportado (o vínculo de
+    // subtarefa é definido apenas na criação), o que mantém o invariante de 1 nível.
+    const { position, tags: tagNames, parentId: _ignoredParentId, ...rest } = data
     const tagsWrite = await this.buildTagsWrite(tagNames, { replace: true })
     const baseData = { ...rest, dueDate: parseDueDate(data.dueDate), ...tagsWrite }
 
     const current = await this.prisma.task.findFirst({
       where: { id, projectId },
-      select: { status: true },
+      select: { status: true, parentId: true },
     })
     if (!current) throw new NotFoundException('Task not found')
 
     const targetStatus = data.status ?? current.status
     const statusChanged = targetStatus !== current.status
     const positionProvided = position !== undefined
+
+    // Após salvar, reindexa a própria task; se for subtarefa, também o pai (o
+    // resumo de subtarefas/progresso do embedding do pai muda).
+    const dispatchEmbeddings = (taskId: string) => {
+      this.ragService.dispatchTaskEmbedding(taskId)
+      if (current.parentId) this.ragService.dispatchTaskEmbedding(current.parentId)
+    }
 
     // Nada que afete a ordenação mudou: um update simples basta.
     if (!statusChanged && !positionProvided) {
@@ -150,14 +240,15 @@ export class TasksService {
         data: baseData,
         include: taskInclude,
       })
-      this.ragService.dispatchTaskEmbedding(updated.id)
+      dispatchEmbeddings(updated.id)
       return flattenTags(updated)
     }
 
     // Com fractional indexing, reordenar é UMA escrita: basta calcular a chave
     // entre os vizinhos da posição alvo (na coluna de destino, sem a própria task).
+    // Os irmãos são escopados pelo mesmo `parentId` da task (top-level ou do pai).
     const siblings = await this.prisma.task.findMany({
-      where: { projectId, status: targetStatus, id: { not: id } },
+      where: { projectId, status: targetStatus, parentId: current.parentId, id: { not: id } },
       orderBy: { order: 'asc' },
       select: { order: true },
     })
@@ -174,15 +265,32 @@ export class TasksService {
       include: taskInclude,
     })
 
-    this.ragService.dispatchTaskEmbedding(updated.id)
+    dispatchEmbeddings(updated.id)
     return flattenTags(updated)
   }
 
   async delete({ id, projectId }: { id: string; projectId: string }) {
-    await this.prisma.task.findUnique({ where: { id }, include: { comments: true } })
-    await this.prisma.comment.deleteMany({ where: { taskId: id } })
+    // Busca a task no projeto + ids das subtarefas (para limpar embeddings, que
+    // não são FK e portanto não são removidos pelo cascade do banco).
+    const task = await this.prisma.task.findFirst({
+      where: { id, projectId },
+      select: { parentId: true, subtasks: { select: { id: true } } },
+    })
+    if (!task) throw new NotFoundException('Task not found')
+
+    const subtaskIds = task.subtasks.map((s) => s.id)
+    const allIds = [id, ...subtaskIds]
+
+    // Comment não tem cascade no banco: remover comentários do pai + subtarefas
+    // antes de deletar, senão o cascade da task esbarraria na FK dos comments.
+    await this.prisma.comment.deleteMany({ where: { taskId: { in: allIds } } })
+    // O cascade da auto-relação remove as subtarefas ao deletar a tarefa-pai.
     await this.prisma.task.delete({ where: { id, projectId } })
-    this.ragService.dispatchTaskDelete(id)
+
+    // Limpa embeddings da task e de todas as subtarefas removidas.
+    allIds.forEach((taskId) => this.ragService.dispatchTaskDelete(taskId))
+    // Se era uma subtarefa, reindexa o pai (o progresso dele mudou).
+    if (task.parentId) this.ragService.dispatchTaskEmbedding(task.parentId)
     return
   }
 

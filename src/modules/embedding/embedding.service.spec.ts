@@ -35,9 +35,12 @@ describe('EmbeddingService', () => {
     dueDate: new Date('2026-06-15'),
     projectId: 'project1',
     assigneeId: 'user1',
+    parentId: null,
     project: { name: 'Test Project' },
     assignee: { name: 'Test User' },
     tags: [],
+    parent: null,
+    subtasks: [],
   };
 
   const mockComment = {
@@ -115,9 +118,50 @@ describe('EmbeddingService', () => {
           project: { select: { name: true } },
           assignee: { select: { name: true } },
           tags: { select: { tag: { select: { name: true } } } },
+          parent: { select: { id: true, title: true } },
+          subtasks: { select: { title: true, status: true } },
         },
       });
       expect(prisma.$executeRaw).toHaveBeenCalled();
+    });
+
+    it('embeds the parent link + parentId metadata for a subtask', async () => {
+      const subtask = {
+        ...mockTask,
+        id: 'sub1',
+        parentId: 'task1',
+        parent: { id: 'task1', title: 'Parent Task' },
+        subtasks: [],
+      };
+      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(subtask as any);
+      const upsertSpy = jest.spyOn(service as any, 'upsert').mockResolvedValue(undefined);
+
+      await service.generateForTask('sub1');
+
+      const arg = upsertSpy.mock.calls[0][0] as { content: string; metadata: any };
+      expect(arg.content).toContain('Parent task: Parent Task');
+      expect(arg.metadata).toMatchObject({ parentId: 'task1', parentTitle: 'Parent Task' });
+    });
+
+    it('embeds a subtasks summary (done/total) for a parent task', async () => {
+      const parent = {
+        ...mockTask,
+        id: 'task1',
+        parent: null,
+        parentId: null,
+        subtasks: [
+          { title: 'A', status: 'DONE' },
+          { title: 'B', status: 'TODO' },
+        ],
+      };
+      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(parent as any);
+      const upsertSpy = jest.spyOn(service as any, 'upsert').mockResolvedValue(undefined);
+
+      await service.generateForTask('task1');
+
+      const arg = upsertSpy.mock.calls[0][0] as { content: string; metadata: any };
+      expect(arg.content).toContain('Subtasks (1/2 done): [DONE] A; [TODO] B');
+      expect(arg.metadata).toMatchObject({ parentId: null, parentTitle: null });
     });
 
     it('should generate embedding for a task without optional fields', async () => {
@@ -130,9 +174,12 @@ describe('EmbeddingService', () => {
         dueDate: null,
         projectId: 'project1',
         assigneeId: null,
+        parentId: null,
         project: { name: 'Test Project' },
         assignee: null,
         tags: [],
+        parent: null,
+        subtasks: [],
       };
       jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(minimalTask as any);
       jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);

@@ -143,6 +143,31 @@ describe('DashboardService', () => {
     )
   })
 
+  it('excludes subtasks from all metrics (parentId IS NULL)', async () => {
+    jest.spyOn(prisma.task, 'count').mockResolvedValue(0)
+    jest.spyOn(prisma.project, 'findMany').mockResolvedValue([] as never)
+    jest.spyOn(prisma.task, 'findMany').mockResolvedValue([] as never)
+
+    await service.getSummary()
+
+    // Todos os counts (active, completed, inProgress) filtram top-level.
+    for (const call of (prisma.task.count as jest.Mock).mock.calls) {
+      expect(call[0].where).toMatchObject({ parentId: null })
+    }
+    // upcomingTasks também.
+    expect(prisma.task.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ parentId: null }) }),
+    )
+    // recentProjects conta apenas tarefas top-level por projeto.
+    expect(prisma.project.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          tasks: { where: { parentId: null }, select: { status: true } },
+        }),
+      }),
+    )
+  })
+
   it('returns empty collections when the user has no data', async () => {
     jest.spyOn(prisma.task, 'count').mockResolvedValue(0)
     jest.spyOn(prisma.project, 'findMany').mockResolvedValue([] as never)

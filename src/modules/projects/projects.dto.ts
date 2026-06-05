@@ -3,7 +3,7 @@ import { IsNotEmpty, IsString } from 'class-validator'
 import { CollaboratorRole, TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
 import { CollaboratorItemListDTO } from '../collaborators/collaborator.dto'
 import { TagDTO } from '../tags/tags.dto'
-import { TaskAssineeDTO, TaskCommentDTO } from '../tasks/tasks.dto'
+import { SubtaskProgressDTO, TaskAssineeDTO, TaskCommentDTO } from '../tasks/tasks.dto'
 
 export class ProjectDTO {
   @ApiProperty({ description: 'Project name' })
@@ -31,6 +31,18 @@ export class ProjectTaskDTO {
   @ApiProperty({ type: [TagDTO] }) tags: TagDTO[]
   @ApiProperty({ type: TaskAssineeDTO, nullable: true, required: false })
   assignee?: TaskAssineeDTO | null
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    required: false,
+    description: 'Sempre null aqui: o board lista apenas tarefas top-level.',
+  })
+  parentId?: string | null
+  @ApiProperty({
+    type: SubtaskProgressDTO,
+    description: 'Progresso das subtarefas (done/total) para o indicador "3/5" no card.',
+  })
+  subtaskProgress: SubtaskProgressDTO
 }
 
 export class ProjectItemListDTO {

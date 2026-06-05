@@ -25,12 +25,24 @@ export class EmbeddingService {
         project: { select: { name: true } },
         assignee: { select: { name: true } },
         tags: { select: { tag: { select: { name: true } } } },
+        // Vínculo do pai (para subtarefas) e subtarefas (para tarefas-pai). Ambos
+        // alimentam o conteúdo do embedding para o RAG responder perguntas como
+        // "o que falta na tarefa X?".
+        parent: { select: { id: true, title: true } },
+        subtasks: { select: { title: true, status: true } },
       },
     })
 
     if (!task) throw new NotFoundException(`Task ${taskId} not found`)
 
     const tagNames = task.tags.map((t) => t.tag.name)
+
+    // Resumo das subtarefas: "[DONE] título; [TODO] título" + contador agregado.
+    const doneSubtasks = task.subtasks.filter((s) => s.status === 'DONE').length
+    const subtasksLine = task.subtasks.length
+      ? `Subtasks (${doneSubtasks}/${task.subtasks.length} done): ` +
+        task.subtasks.map((s) => `[${s.status}] ${s.title}`).join('; ')
+      : null
 
     const content = [
       `Title: ${task.title}`,
@@ -41,6 +53,9 @@ export class EmbeddingService {
       task.assignee ? `Assignee: ${task.assignee.name}` : null,
       task.dueDate ? `Due date: ${task.dueDate.toISOString().split('T')[0]}` : null,
       tagNames.length ? `Tags: ${tagNames.join(', ')}` : null,
+      // Para subtarefas: deixa explícito de qual tarefa-pai faz parte.
+      task.parent ? `Parent task: ${task.parent.title}` : null,
+      subtasksLine,
     ]
       .filter(Boolean)
       .join('\n')
@@ -51,6 +66,9 @@ export class EmbeddingService {
       status: task.status,
       priority: task.priority,
       dueDate: task.dueDate?.toISOString() ?? null,
+      // parentId/parentTitle ajudam o RAG a relacionar subtarefa ↔ tarefa-pai.
+      parentId: task.parentId,
+      parentTitle: task.parent?.title ?? null,
     }
 
     await this.upsert({

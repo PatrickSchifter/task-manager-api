@@ -24,12 +24,15 @@ export class DashboardService {
     const sevenDaysAgo = new Date()
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
+    // Métricas contam apenas tarefas top-level (parentId IS NULL). Subtarefas são
+    // unidades de trabalho internas e não entram nas contagens do dashboard.
     const [activeTasks, completedLast7Days, inProgress, recentProjects, upcomingTasks] =
       await Promise.all([
         // Tarefas ativas (TODO + IN_PROGRESS)
         this.prisma.task.count({
           where: {
             project: projectWhere,
+            parentId: null,
             status: { in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS] },
           },
         }),
@@ -38,6 +41,7 @@ export class DashboardService {
         this.prisma.task.count({
           where: {
             project: projectWhere,
+            parentId: null,
             status: TaskStatus.DONE,
             updatedAt: { gte: sevenDaysAgo },
           },
@@ -47,11 +51,12 @@ export class DashboardService {
         this.prisma.task.count({
           where: {
             project: projectWhere,
+            parentId: null,
             status: TaskStatus.IN_PROGRESS,
           },
         }),
 
-        // Projetos recentes com contagem de tarefas
+        // Projetos recentes com contagem de tarefas (apenas top-level)
         this.prisma.project.findMany({
           where: projectWhere,
           orderBy: { updatedAt: 'desc' },
@@ -60,6 +65,7 @@ export class DashboardService {
             id: true,
             name: true,
             tasks: {
+              where: { parentId: null },
               select: { status: true },
             },
           },
@@ -69,6 +75,7 @@ export class DashboardService {
         this.prisma.task.findMany({
           where: {
             project: projectWhere,
+            parentId: null,
             status: { not: TaskStatus.DONE },
             dueDate: { not: null },
           },

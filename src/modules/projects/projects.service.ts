@@ -89,11 +89,15 @@ export class ProjectsService {
       },
       select: {
         tasks: {
+          // Apenas tarefas top-level viram cards no Kanban; subtarefas
+          // (parentId != null) são gerenciadas na página de detalhe do pai.
+          where: { parentId: null },
           orderBy: [{ status: 'asc' }, { order: 'asc' }],
           select: {
             title: true,
             description: true,
             id: true,
+            parentId: true,
             dueDate: true,
             createdAt: true,
             updatedAt: true,
@@ -103,6 +107,8 @@ export class ProjectsService {
             comments: true,
             assignee: true,
             tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+            // Status das subtarefas → indicador de progresso "3/5" no card.
+            subtasks: { select: { status: true } },
           },
         },
         collaborators: {
@@ -125,13 +131,18 @@ export class ProjectsService {
 
     if (!project) return project
 
-    // Achata as tags de cada task (TaskTag[] → TagDTO[]), mesmo formato do
+    // Achata as tags de cada task (TaskTag[] → TagDTO[]) e troca o array de
+    // subtarefas pelo contador `subtaskProgress` (done/total), mesmo formato do
     // endpoint de tasks.
     return {
       ...project,
-      tasks: project.tasks.map((task) => ({
+      tasks: project.tasks.map(({ subtasks, ...task }) => ({
         ...task,
         tags: task.tags.map((t) => t.tag),
+        subtaskProgress: {
+          done: subtasks.filter((s) => s.status === 'DONE').length,
+          total: subtasks.length,
+        },
       })),
     }
   }

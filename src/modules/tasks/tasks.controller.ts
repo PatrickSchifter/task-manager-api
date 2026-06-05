@@ -70,6 +70,16 @@ export class TasksController {
     return this.taskService.findById({ id: taskId, projectId })
   }
 
+  @Get(':taskId/subtasks')
+  @ApiOkResponse({ type: [TaskItemListDTO] })
+  @ValidateResourcesIds()
+  findSubtasks(
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+  ) {
+    return this.taskService.findSubtasks({ taskId, projectId })
+  }
+
   @Put(':taskId')
   // Reordenar tasks (drag-and-drop) no kanban dispara muitos updates em
   // sequência, por isso esta rota usa um limite bem maior que o global

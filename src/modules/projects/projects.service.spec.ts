@@ -87,7 +87,7 @@ describe('ProjectsService', () => {
     expect(prisma.project.findMany).toHaveBeenCalledTimes(1)
   })
 
-  it('should be able to return a project by id with flattened task tags', async () => {
+  it('should return a project by id with flattened tags and subtask progress', async () => {
     const base = mockedProjects[0]
     const dbProject = {
       ...base,
@@ -96,6 +96,7 @@ describe('ProjectsService', () => {
           id: 'task-1',
           title: 'Task 1',
           tags: [{ tag: { id: 'tag-1', name: 'backend', color: 'emerald' } }],
+          subtasks: [{ status: 'DONE' }, { status: 'TODO' }],
         },
       ],
     }
@@ -104,16 +105,28 @@ describe('ProjectsService', () => {
     const result = await service.findById(base.id)
 
     expect(result).toEqual({
-      ...dbProject,
+      ...base,
       tasks: [
         {
           id: 'task-1',
           title: 'Task 1',
           tags: [{ id: 'tag-1', name: 'backend', color: 'emerald' }],
+          subtaskProgress: { done: 1, total: 2 },
         },
       ],
     })
     expect(prisma.project.findFirst).toHaveBeenCalledTimes(1)
+  })
+
+  it('only requests top-level tasks for the board (parentId IS NULL)', async () => {
+    const base = mockedProjects[0]
+    jest.spyOn(prisma.project, 'findFirst').mockResolvedValue({ ...base, tasks: [] } as never)
+
+    await service.findById(base.id)
+
+    const arg = (prisma.project.findFirst as jest.Mock).mock.calls[0][0]
+    expect(arg.select.tasks.where).toEqual({ parentId: null })
+    expect(arg.select.tasks.select.subtasks).toEqual({ select: { status: true } })
   })
 
   it('should be able to create a project', async () => {
