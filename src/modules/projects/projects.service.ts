@@ -70,10 +70,10 @@ export class ProjectsService {
     return paginateOutput({ data, total, query })
   }
 
-  findById(id: string) {
+  async findById(id: string) {
     const userId = this.requestContext.getUserId()
 
-    return this.prisma.project.findFirst({
+    const project = await this.prisma.project.findFirst({
       where: {
         id,
         OR: [
@@ -102,6 +102,7 @@ export class ProjectsService {
             order: true,
             comments: true,
             assignee: true,
+            tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
           },
         },
         collaborators: {
@@ -121,6 +122,18 @@ export class ProjectsService {
         createdById: true,
       },
     })
+
+    if (!project) return project
+
+    // Achata as tags de cada task (TaskTag[] → TagDTO[]), mesmo formato do
+    // endpoint de tasks.
+    return {
+      ...project,
+      tasks: project.tasks.map((task) => ({
+        ...task,
+        tags: task.tags.map((t) => t.tag),
+      })),
+    }
   }
 
   async create(data: ProjectDTO) {

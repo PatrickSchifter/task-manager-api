@@ -1,6 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator'
+import {
+  IsArray,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator'
 import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { TagDTO } from '../tags/tags.dto'
 
 export class TasksRequestDTO {
   @ApiProperty({ description: 'Task title' })
@@ -45,6 +55,17 @@ export class TasksRequestDTO {
 
   @ApiProperty({
     description:
+      'Tag names to attach to the task. Existing tags (by name, for the current user) are reused; unknown names are created automatically with an auto-assigned color. Omit to leave tags unchanged on update.',
+    type: [String],
+    required: false,
+  })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  tags?: string[]
+
+  @ApiProperty({
+    description:
       'Target index (0-based) within the status column. Ignored on create (a new task always goes to the top). On update, moves the task to this position; the server computes the fractional `order` key.',
     minimum: 0,
     required: false,
@@ -64,6 +85,7 @@ class TaskBaseDTO {
   @ApiProperty({ description: 'Fractional index key for ordering within the status column' })
   order: string
   @ApiProperty({ format: 'date-time', nullable: true, required: false }) dueDate?: Date | null
+  @ApiProperty({ type: [TagDTO] }) tags: TagDTO[]
   @ApiProperty({ format: 'date-time' }) createdAt: Date
   @ApiProperty({ format: 'date-time' }) updatedAt: Date
 }

@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger'
 import { IsNotEmpty, IsString } from 'class-validator'
 import { CollaboratorRole, TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
 import { CollaboratorItemListDTO } from '../collaborators/collaborator.dto'
+import { TagDTO } from '../tags/tags.dto'
 import { TaskAssineeDTO, TaskCommentDTO } from '../tasks/tasks.dto'
 
 export class ProjectDTO {
@@ -27,6 +28,7 @@ export class ProjectTaskDTO {
   @ApiProperty({ format: 'date-time' }) createdAt: string
   @ApiProperty({ format: 'date-time' }) updatedAt: string
   @ApiProperty({ type: [TaskCommentDTO] }) comments: TaskCommentDTO[]
+  @ApiProperty({ type: [TagDTO] }) tags: TagDTO[]
   @ApiProperty({ type: TaskAssineeDTO, nullable: true, required: false })
   assignee?: TaskAssineeDTO | null
 }

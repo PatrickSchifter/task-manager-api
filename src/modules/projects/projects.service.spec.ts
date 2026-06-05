@@ -86,13 +86,32 @@ describe('ProjectsService', () => {
     expect(prisma.project.findMany).toHaveBeenCalledTimes(1)
   })
 
-  it('should be able to return a project by id', async () => {
-    const project = mockedProjects[0]
-    jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(project)
+  it('should be able to return a project by id with flattened task tags', async () => {
+    const base = mockedProjects[0]
+    const dbProject = {
+      ...base,
+      tasks: [
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          tags: [{ tag: { id: 'tag-1', name: 'backend', color: 'emerald' } }],
+        },
+      ],
+    }
+    jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(dbProject as never)
 
-    const result = await service.findById(project.id)
+    const result = await service.findById(base.id)
 
-    expect(result).toEqual(project)
+    expect(result).toEqual({
+      ...dbProject,
+      tasks: [
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          tags: [{ id: 'tag-1', name: 'backend', color: 'emerald' }],
+        },
+      ],
+    })
     expect(prisma.project.findFirst).toHaveBeenCalledTimes(1)
   })
 

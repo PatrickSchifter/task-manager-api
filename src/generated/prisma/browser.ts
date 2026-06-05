@@ -43,6 +43,16 @@ export type Project = Prisma.ProjectModel
  */
 export type Task = Prisma.TaskModel
 /**
+ * Model Tag
+ * 
+ */
+export type Tag = Prisma.TagModel
+/**
+ * Model TaskTag
+ * 
+ */
+export type TaskTag = Prisma.TaskTagModel
+/**
  * Model Embedding
  * 
  */

@@ -25,9 +25,17 @@ jobs:
           script: |
             export NVM_DIR="$HOME/.nvm"
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+            # Aborta o deploy se qualquer passo abaixo falhar (build, generate,
+            # migração) — assim nunca reiniciamos a API contra um banco em estado
+            # inconsistente.
+            set -e
             cd task-manager
             git reset --hard HEAD && git pull origin main
             pnpm i
             pnpm run build
             pnpm prisma generate
+            # Aplica automaticamente as migrações pendentes em produção.
+            # Idempotente: não faz nada quando não há migração nova e nunca reseta
+            # o banco. Cobre qualquer futura mudança de schema sem acesso manual.
+            pnpm prisma migrate deploy
             pm2 restart api
