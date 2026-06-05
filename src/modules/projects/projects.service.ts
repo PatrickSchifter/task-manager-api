@@ -85,7 +85,13 @@ export class ProjectsService {
           },
         },
         collaborators: {
-          select: { user: { select: { name: true, email: true, id: true } }, role: true, id: true },
+          select: {
+            user: { select: { name: true, email: true, id: true } },
+            role: true,
+            id: true,
+            userId: true,
+            projectId: true,
+          },
         },
         createdAt: true,
         updatedAt: true,
