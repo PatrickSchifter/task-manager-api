@@ -203,7 +203,7 @@ describe('TasksService', () => {
     it('should reject a subtask whose parent is itself a subtask (1-level rule)', async () => {
       prismaMock.task.findFirst.mockResolvedValueOnce({ parentId: 'grandparent' })
 
-      const dto: TasksRequestDTO = { title: 'Deep', parentId: 'task1' }
+      const dto: TasksRequestDTO = { title: 'Deep', assigneeId: 'user1', parentId: 'task1' }
 
       await expect(service.create({ data: dto, projectId: 'project1' })).rejects.toThrow(
         BadRequestException,
@@ -214,7 +214,7 @@ describe('TasksService', () => {
     it('should reject a subtask when the parent does not exist', async () => {
       prismaMock.task.findFirst.mockResolvedValueOnce(null)
 
-      const dto: TasksRequestDTO = { title: 'Orphan', parentId: 'missing' }
+      const dto: TasksRequestDTO = { title: 'Orphan', assigneeId: 'user1', parentId: 'missing' }
 
       await expect(service.create({ data: dto, projectId: 'project1' })).rejects.toThrow(
         NotFoundException,

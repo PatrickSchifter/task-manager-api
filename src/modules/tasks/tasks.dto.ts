@@ -52,7 +52,7 @@ export class TasksRequestDTO {
   @ApiProperty({ description: 'Assinee User Id', required: false })
   @IsString()
   @IsOptional()
-  assigneeId: string
+  assigneeId?: string
 
   @ApiProperty({
     description:
