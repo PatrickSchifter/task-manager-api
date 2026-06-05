@@ -21,6 +21,8 @@ export class ProjectTaskDTO {
   @ApiProperty({ nullable: true }) description: string
   @ApiProperty({ enum: TaskStatus, default: TaskStatus.TODO }) status: TaskStatus
   @ApiProperty({ enum: TaskPriority, default: TaskPriority.MEDIUM }) priority: TaskPriority
+  @ApiProperty({ description: 'Fractional index key for ordering within the status column' })
+  order: string
   @ApiProperty({ format: 'date-time' }) dueDate: string
   @ApiProperty({ format: 'date-time' }) createdAt: string
   @ApiProperty({ format: 'date-time' }) updatedAt: string

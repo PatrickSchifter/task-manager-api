@@ -20,6 +20,7 @@ import {
   ApiOkResponse,
   ApiResponse,
 } from '@nestjs/swagger'
+import { Throttle } from '@nestjs/throttler'
 import { ValidateResourcesIds } from 'src/common/decorators/validate-resources-ids.decorator'
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
@@ -70,6 +71,9 @@ export class TasksController {
   }
 
   @Put(':taskId')
+  // Reordenar tasks (drag-and-drop) dispara muitos updates em sequência,
+  // por isso esta rota usa um limite bem maior que o global (10/min).
+  @Throttle({ default: { limit: 120, ttl: 60_000 } })
   @ApiOkResponse({ type: TaskItemListDTO })
   @ValidateResourcesIds()
   update(

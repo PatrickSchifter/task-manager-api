@@ -93,14 +93,18 @@ model Task {
   dueDate       DateTime?
   projectId     String
   assigneeId    String?
-  order         Int?
-  
+  // Fractional index key (ordenação lexicográfica). A coluna usa COLLATE "C"
+  // no banco para que a ordenação por bytes case com a das chaves geradas.
+  order         String @default("a0")
+
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   project       Project @relation(fields: [projectId], references: [id])
   assignee      User? @relation("AssignedTasks", fields: [assigneeId], references: [id])
   comments      Comment[]
+
+  @@unique([projectId, status, order])
 }
 
 enum TaskPriority {

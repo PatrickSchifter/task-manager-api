@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator'
+import { IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator'
 import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
 
 export class TasksRequestDTO {
@@ -42,6 +42,17 @@ export class TasksRequestDTO {
   @IsString()
   @IsOptional()
   assigneeId: string
+
+  @ApiProperty({
+    description:
+      'Target index (0-based) within the status column. Ignored on create (a new task always goes to the top). On update, moves the task to this position; the server computes the fractional `order` key.',
+    minimum: 0,
+    required: false,
+  })
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  position?: number
 }
 
 class TaskBaseDTO {
@@ -50,6 +61,8 @@ class TaskBaseDTO {
   @ApiProperty({ nullable: true, required: false }) description?: string | null
   @ApiProperty({ enum: TaskStatus }) status: TaskStatus
   @ApiProperty({ enum: TaskPriority }) priority: TaskPriority
+  @ApiProperty({ description: 'Fractional index key for ordering within the status column' })
+  order: string
   @ApiProperty({ format: 'date-time', nullable: true, required: false }) dueDate?: Date | null
   @ApiProperty({ format: 'date-time' }) createdAt: Date
   @ApiProperty({ format: 'date-time' }) updatedAt: Date

@@ -69,6 +69,7 @@ export class ProjectsService {
       },
       select: {
         tasks: {
+          orderBy: [{ status: 'asc' }, { order: 'asc' }],
           select: {
             title: true,
             description: true,
@@ -78,6 +79,7 @@ export class ProjectsService {
             updatedAt: true,
             priority: true,
             status: true,
+            order: true,
             comments: true,
             assignee: true,
           },
