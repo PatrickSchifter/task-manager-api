@@ -5,7 +5,7 @@
 ### A task management SaaS you can actually *talk to*
 
 [![Live Demo](https://img.shields.io/badge/live-tasks.solutlabs.com.br-2ea44f?style=flat-square)](https://tasks.solutlabs.com.br)
-[![Tests](https://img.shields.io/badge/tests-261%20passing-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-271%20passing-brightgreen?style=flat-square)](#tests)
 [![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen?style=flat-square)](#tests)
 [![NestJS](https://img.shields.io/badge/NestJS-11-e0234e?style=flat-square&logo=nestjs)](https://nestjs.com)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](#license)
@@ -28,7 +28,7 @@ Task Manager is a full SaaS platform where teams organize projects, tasks, and c
 
 …and get a real, accurate answer based on **your actual data** — not a generic chatbot guess.
 
-It's **live in production**, runs on cloud infrastructure with automated deployments, and is backed by **261 automated tests (95% coverage)**.
+It's **live in production**, runs on cloud infrastructure with automated deployments, and is backed by **271 automated tests (95% coverage)**.
 
 ### Why this project is interesting
 
@@ -37,7 +37,7 @@ It's **live in production**, runs on cloud infrastructure with automated deploym
 | 🤖 **Talk to your data** | A real AI assistant that answers questions about your own projects and tasks — grounded in your data, with zero made-up answers. |
 | ⚡ **Built to scale** | Heavy AI work runs in the background through message queues, so the app stays instant and responsive no matter what the AI is doing. |
 | ☁️ **Actually shipped** | Not a toy demo — it's deployed, monitored, and reachable at a real domain with automated build-and-deploy on every push. |
-| 🧪 **Engineered carefully** | 261 tests covering 95% of the codebase. The business logic that matters is tested end to end. |
+| 🧪 **Engineered carefully** | 271 tests covering 95% of the codebase. The business logic that matters is tested end to end. |
 | 🔒 **Secure by design** | Every answer respects who you are — you can never see data from projects you're not part of, even by accident. |
 
 ### What this project demonstrates
@@ -255,7 +255,7 @@ When a project, task, or comment is created or updated, an event is emitted to t
 Key design decisions:
 
 - The embedding table is **polymorphic** — projects, tasks, and comments all live in a single `Embedding` table with a `sourceType` discriminator, making it trivially extensible to new entity types
-- Embeddings carry a `metadata` JSON field (`projectId`, `assigneeId`, `status`, `priority`, `dueDate`) enabling pre-filter queries without extra JOINs
+- Embeddings carry a `metadata` JSON field (`projectId`, `assigneeId`, `status`, `priority`, `dueDate`, and `parentId` / `parentTitle` for subtasks) enabling pre-filter queries without extra JOINs. The indexed text also includes the parent link on a subtask and a subtask summary (`Subtasks (3/5 done): ...`) on a parent, so the assistant can answer "what's left on task X?"
 - Deletes are **cascade-aware** — removing a project cleans up all related task and comment embeddings in a single query via metadata filtering
 - The pipeline is **fully async** — embedding generation never adds latency to the API response
 
@@ -271,13 +271,17 @@ Create projects, invite collaborators, and assign permission roles per user (VIE
 
 Full task lifecycle with status tracking (TODO / IN_PROGRESS / DONE), priority levels (LOW / MEDIUM / HIGH), due dates, assignees, and drag-and-drop ordering powered by **fractional indexing** (lexicographic order keys, so reordering a task updates a single row instead of renumbering the whole list). Every mutation dispatches an embedding update automatically.
 
+### Subtasks
+
+Tasks can be broken down into **subtasks** — modeled as a single-level self-relation on `Task` (`parentId`), not a separate entity, so a subtask has its own status, priority, assignee, due date, and fractional ordering just like any task. The one-level rule (a subtask can't have subtasks) is validated on creation, and deleting a parent cascades to its subtasks. Top-level listings (Kanban board, dashboard) filter to `parentId IS NULL`, so subtasks never show up as standalone cards — each parent instead carries a `subtaskProgress` counter (e.g. `3/5`), and the subtasks themselves are managed from the task detail page. Ordering is scoped per parent via a composite unique index `(projectId, status, parentId, order)` with `NULLS NOT DISTINCT`, which keeps the top-level guarantee intact in PostgreSQL.
+
 ### Tags
 
 Per-user tag catalog reused across projects, with deterministic auto-assigned colors. A find-or-create flow resolves tag names to IDs when creating or editing tasks, and ownership is enforced so users only ever touch their own tags.
 
 ### Dashboard
 
-An aggregated summary endpoint returning active / completed / in-progress task counts, recent projects with task progress, and upcoming deadlines — all scoped to projects the user owns or collaborates on, computed in parallel queries.
+An aggregated summary endpoint returning active / completed / in-progress task counts, recent projects with task progress, and upcoming deadlines — all scoped to projects the user owns or collaborates on, computed in parallel queries. Counts cover only top-level tasks (`parentId IS NULL`); subtasks are internal units of work and don't inflate the metrics.
 
 ### Collaboration
 
@@ -532,7 +536,7 @@ pnpm prisma:generate  # regenerate Prisma client
 pnpm test:cov
 ```
 
-**261 tests across 40 suites — all passing.**
+**271 tests across 40 suites — all passing.**
 
 | Statements | Branches | Functions | Lines |
 |---|---|---|---|
@@ -553,9 +557,10 @@ POST   /v1/projects
 DELETE /v1/projects/:id
 
 GET    /v1/tasks
-POST   /v1/tasks
+POST   /v1/tasks                  ← pass parentId to create a subtask
 PATCH  /v1/tasks/:id
-DELETE /v1/tasks/:id
+DELETE /v1/tasks/:id              ← cascades to subtasks
+GET    /v1/tasks/:id/subtasks     ← subtasks of a task
 
 GET    /v1/tags
 POST   /v1/tags
