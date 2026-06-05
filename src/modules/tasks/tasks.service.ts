@@ -1,14 +1,29 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
+import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { TaskStatus } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { generateKeyBetween } from 'src/utils/fractional-indexing'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
 import { RagService } from '../rag/rag.service'
+import { TagsService } from '../tags/tags.service'
 import { TaskItemListDTO, TasksRequestDTO } from './tasks.dto'
 
-const assigneeSelect = {
+// Seleção das tags vinculadas a uma task. As linhas do join (`TaskTag`) trazem
+// o objeto `tag` aninhado; `flattenTags` achata para `tags: TagDTO[]`.
+const tagsSelect = {
+  tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+}
+
+const taskInclude = {
   assignee: { select: { id: true, name: true, email: true, avatar: true } },
+  ...tagsSelect,
+}
+
+type TaskTagRow = { tag: { id: string; name: string; color: string } }
+
+function flattenTags<T extends { tags: TaskTagRow[] }>(task: T) {
+  return { ...task, tags: task.tags.map((t) => t.tag) }
 }
 
 const parseDueDate = (value?: string): Date | undefined => {
@@ -23,12 +38,14 @@ export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ragService: RagService,
+    private readonly tagsService: TagsService,
+    private readonly requestContext: RequestContextService,
   ) {}
 
   async create({ data, projectId }: { data: TasksRequestDTO; projectId: string }) {
     // Uma nova task sempre entra no topo da sua coluna: gera uma chave fracionária
     // anterior à do primeiro item da coluna. `position` do payload é ignorado aqui.
-    const { position: _ignoredPosition, ...rest } = data
+    const { position: _ignoredPosition, tags: tagNames, ...rest } = data
     const status = data.status ?? TaskStatus.TODO
 
     const first = await this.prisma.task.findFirst({
@@ -45,13 +62,14 @@ export class TasksService {
         order,
         dueDate: parseDueDate(data.dueDate),
         projectId,
+        ...(await this.buildTagsWrite(tagNames, { replace: false })),
       },
-      include: assigneeSelect,
+      include: taskInclude,
     })
 
     this.ragService.dispatchTaskEmbedding(task.id)
 
-    return task
+    return flattenTags(task)
   }
 
   async findAllByProjectId({
@@ -85,30 +103,35 @@ export class TasksService {
             avatar: true,
           },
         },
+        ...tagsSelect,
         createdAt: true,
         updatedAt: true,
       },
     })
     const total = await this.prisma.task.count({ where })
 
-    return paginateOutput({ data: tasks, total, query })
+    return paginateOutput({ data: tasks.map(flattenTags), total, query })
   }
 
-  findById({ id, projectId }: { id: string; projectId: string }) {
-    return this.prisma.task.findFirst({
+  async findById({ id, projectId }: { id: string; projectId: string }) {
+    const task = await this.prisma.task.findFirst({
       where: { id, projectId },
       include: {
         assignee: { select: { id: true, name: true, email: true, avatar: true } },
         comments: {
           include: { author: { select: { id: true, name: true, email: true, avatar: true } } },
         },
+        ...tagsSelect,
       },
     })
+
+    return task ? flattenTags(task) : task
   }
 
   async update({ id, data, projectId }: { id: string; data: TasksRequestDTO; projectId: string }) {
-    const { position, ...rest } = data
-    const baseData = { ...rest, dueDate: parseDueDate(data.dueDate) }
+    const { position, tags: tagNames, ...rest } = data
+    const tagsWrite = await this.buildTagsWrite(tagNames, { replace: true })
+    const baseData = { ...rest, dueDate: parseDueDate(data.dueDate), ...tagsWrite }
 
     const current = await this.prisma.task.findFirst({
       where: { id, projectId },
@@ -125,10 +148,10 @@ export class TasksService {
       const updated = await this.prisma.task.update({
         where: { id, projectId },
         data: baseData,
-        include: assigneeSelect,
+        include: taskInclude,
       })
       this.ragService.dispatchTaskEmbedding(updated.id)
-      return updated
+      return flattenTags(updated)
     }
 
     // Com fractional indexing, reordenar é UMA escrita: basta calcular a chave
@@ -148,11 +171,11 @@ export class TasksService {
     const updated = await this.prisma.task.update({
       where: { id, projectId },
       data: { ...baseData, status: targetStatus, order },
-      include: assigneeSelect,
+      include: taskInclude,
     })
 
     this.ragService.dispatchTaskEmbedding(updated.id)
-    return updated
+    return flattenTags(updated)
   }
 
   async delete({ id, projectId }: { id: string; projectId: string }) {
@@ -161,5 +184,25 @@ export class TasksService {
     await this.prisma.task.delete({ where: { id, projectId } })
     this.ragService.dispatchTaskDelete(id)
     return
+  }
+
+  // Monta o trecho de escrita aninhada das tags para create/update.
+  // - undefined  → não mexe nas tags (omite a chave).
+  // - []         → limpa todas as tags da task (apenas no update).
+  // - [nomes...] → define o conjunto pelas tags resolvidas (cria as novas).
+  // `replace` adiciona `deleteMany` (substituição) — só vale no update; no
+  // create não existem vínculos anteriores.
+  private async buildTagsWrite(tagNames: string[] | undefined, { replace }: { replace: boolean }) {
+    if (tagNames === undefined) return {}
+
+    const ownerId = this.requestContext.getUserId()
+    const tagIds = await this.tagsService.resolveNames(ownerId, tagNames)
+
+    return {
+      tags: {
+        ...(replace ? { deleteMany: {} } : {}),
+        create: tagIds.map((tagId) => ({ tagId })),
+      },
+    }
   }
 }

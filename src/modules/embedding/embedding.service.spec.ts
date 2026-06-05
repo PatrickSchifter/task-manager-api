@@ -37,6 +37,7 @@ describe('EmbeddingService', () => {
     assigneeId: 'user1',
     project: { name: 'Test Project' },
     assignee: { name: 'Test User' },
+    tags: [],
   };
 
   const mockComment = {
@@ -110,7 +111,11 @@ describe('EmbeddingService', () => {
 
       expect(prisma.task.findUnique).toHaveBeenCalledWith({
         where: { id: 'task1' },
-        include: { project: { select: { name: true } }, assignee: { select: { name: true } } },
+        include: {
+          project: { select: { name: true } },
+          assignee: { select: { name: true } },
+          tags: { select: { tag: { select: { name: true } } } },
+        },
       });
       expect(prisma.$executeRaw).toHaveBeenCalled();
     });
@@ -127,6 +132,7 @@ describe('EmbeddingService', () => {
         assigneeId: null,
         project: { name: 'Test Project' },
         assignee: null,
+        tags: [],
       };
       jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(minimalTask as any);
       jest.spyOn(prisma, '$executeRaw').mockResolvedValue(undefined);

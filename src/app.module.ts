@@ -17,6 +17,7 @@ import { MailModule } from './modules/mail/mail.module'
 import { McpModule } from './modules/mcp/mcp.module'
 import { ProjectsModule } from './modules/projects/projects.module'
 import { RagModule } from './modules/rag/rag.module'
+import { TagsModule } from './modules/tags/tags.module'
 import { TasksModule } from './modules/tasks/tasks.module'
 import { UsersModule } from './modules/users/users.module'
 import { PrismaModule } from './prisma/prisma.module'
@@ -30,6 +31,7 @@ import { PrismaModule } from './prisma/prisma.module'
     PrismaModule,
     ProjectsModule,
     TasksModule,
+    TagsModule,
     UsersModule,
     CollaboratorsModule,
     CommentsModule,

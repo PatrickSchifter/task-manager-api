@@ -56,6 +56,8 @@ export const ModelName = {
   Comment: 'Comment',
   Project: 'Project',
   Task: 'Task',
+  Tag: 'Tag',
+  TaskTag: 'TaskTag',
   Embedding: 'Embedding',
   ChatMessage: 'ChatMessage'
 } as const
@@ -140,6 +142,25 @@ export const TaskScalarFieldEnum = {
 } as const
 
 export type TaskScalarFieldEnum = (typeof TaskScalarFieldEnum)[keyof typeof TaskScalarFieldEnum]
+
+
+export const TagScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  color: 'color',
+  ownerId: 'ownerId',
+  createdAt: 'createdAt'
+} as const
+
+export type TagScalarFieldEnum = (typeof TagScalarFieldEnum)[keyof typeof TagScalarFieldEnum]
+
+
+export const TaskTagScalarFieldEnum = {
+  taskId: 'taskId',
+  tagId: 'tagId'
+} as const
+
+export type TaskTagScalarFieldEnum = (typeof TaskTagScalarFieldEnum)[keyof typeof TaskTagScalarFieldEnum]
 
 
 export const EmbeddingScalarFieldEnum = {

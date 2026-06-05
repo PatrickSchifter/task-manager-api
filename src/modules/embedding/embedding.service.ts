@@ -24,10 +24,13 @@ export class EmbeddingService {
       include: {
         project: { select: { name: true } },
         assignee: { select: { name: true } },
+        tags: { select: { tag: { select: { name: true } } } },
       },
     })
 
     if (!task) throw new NotFoundException(`Task ${taskId} not found`)
+
+    const tagNames = task.tags.map((t) => t.tag.name)
 
     const content = [
       `Title: ${task.title}`,
@@ -37,6 +40,7 @@ export class EmbeddingService {
       `Project: ${task.project.name}`,
       task.assignee ? `Assignee: ${task.assignee.name}` : null,
       task.dueDate ? `Due date: ${task.dueDate.toISOString().split('T')[0]}` : null,
+      tagNames.length ? `Tags: ${tagNames.join(', ')}` : null,
     ]
       .filter(Boolean)
       .join('\n')

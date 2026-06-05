@@ -29,6 +29,7 @@ model User {
   comments        Comment[]
   collaborations  ProjectCollaborator[]
   chatMessages    ChatMessage[]
+  tags            Tag[]     @relation("UserTags")
 }
 
 enum CollaboratorRole {
@@ -103,8 +104,38 @@ model Task {
   project       Project @relation(fields: [projectId], references: [id])
   assignee      User? @relation("AssignedTasks", fields: [assigneeId], references: [id])
   comments      Comment[]
+  tags          TaskTag[]
 
   @@unique([projectId, status, order])
+}
+
+// Tags são globais por usuário (catálogo do dono), reutilizadas entre projetos.
+model Tag {
+  id        String @id @default(uuid())
+  name      String
+  // Token de cor (ver src/utils/tag-color.ts): brand | emerald | amber | rose
+  // | violet | cyan | muted. Atribuído automaticamente na criação.
+  color     String
+  ownerId   String
+
+  createdAt DateTime @default(now())
+
+  owner     User @relation("UserTags", fields: [ownerId], references: [id])
+  tasks     TaskTag[]
+
+  @@unique([ownerId, name])
+}
+
+// Join N:N entre Task e Tag. Cascade nos dois lados: apagar a task ou a tag
+// remove o vínculo automaticamente.
+model TaskTag {
+  taskId String
+  tagId  String
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
 }
 
 enum TaskPriority {

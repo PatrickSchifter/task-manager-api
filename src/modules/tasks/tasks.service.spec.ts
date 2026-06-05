@@ -1,13 +1,21 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
+import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { generateKeyBetween } from 'src/utils/fractional-indexing'
 import { RagService } from '../rag/rag.service'
+import { TagsService } from '../tags/tags.service'
 import { TasksRequestDTO } from './tasks.dto'
 import { TasksService } from './tasks.service'
 
-const assigneeSelect = {
+const tagsSelect = {
+  tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+}
+
+// Inclui usado em create/update/findById (assignee + tags).
+const taskInclude = {
   assignee: { select: { id: true, name: true, email: true, avatar: true } },
+  ...tagsSelect,
 }
 
 describe('TasksService', () => {
@@ -27,6 +35,7 @@ describe('TasksService', () => {
     createdAt: new Date(),
     updatedAt: new Date(),
     assignee: { id: 'user1', name: 'User One', email: 'user1@example.com', avatar: null },
+    tags: [],
   }
 
   const prismaMock: any = {
@@ -54,6 +63,18 @@ describe('TasksService', () => {
           useValue: {
             dispatchTaskEmbedding: jest.fn(),
             dispatchTaskDelete: jest.fn(),
+          },
+        },
+        {
+          provide: TagsService,
+          useValue: {
+            resolveNames: jest.fn().mockResolvedValue([]),
+          },
+        },
+        {
+          provide: RequestContextService,
+          useValue: {
+            getUserId: jest.fn().mockReturnValue('user1'),
           },
         },
       ],
@@ -104,7 +125,7 @@ describe('TasksService', () => {
           dueDate: new Date('2026-06-15T00:00:00.000Z'),
           projectId: 'project1',
         },
-        include: assigneeSelect,
+        include: taskInclude,
       })
     })
 
@@ -137,7 +158,7 @@ describe('TasksService', () => {
           dueDate: undefined,
           projectId: 'project1',
         },
-        include: assigneeSelect,
+        include: taskInclude,
       })
     })
   })
@@ -164,6 +185,7 @@ describe('TasksService', () => {
           order: true,
           dueDate: true,
           assignee: { select: { id: true, name: true, email: true, avatar: true } },
+          ...tagsSelect,
           createdAt: true,
           updatedAt: true,
         },
@@ -197,7 +219,7 @@ describe('TasksService', () => {
           assigneeId: 'user2',
           dueDate: new Date('2026-07-01T00:00:00.000Z'),
         },
-        include: assigneeSelect,
+        include: taskInclude,
       })
     })
 
@@ -227,7 +249,7 @@ describe('TasksService', () => {
           dueDate: undefined,
           order: generateKeyBetween(null, 'a0'), // topo, antes do 'a0'
         },
-        include: assigneeSelect,
+        include: taskInclude,
       })
     })
 
@@ -247,7 +269,7 @@ describe('TasksService', () => {
           status: 'TODO',
           order: generateKeyBetween('a0', 'a1'), // entre os vizinhos
         },
-        include: assigneeSelect,
+        include: taskInclude,
       })
     })
 
@@ -267,7 +289,7 @@ describe('TasksService', () => {
           status: 'TODO',
           order: generateKeyBetween('a1', null), // depois do último
         },
-        include: assigneeSelect,
+        include: taskInclude,
       })
     })
   })
