@@ -105,7 +105,7 @@ describe('EmbeddingService', () => {
   describe('generateForTask', () => {
     it('should generate embedding for a task', async () => {
       jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(mockTask as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(undefined);
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
 
       await service.generateForTask('task1');
 
@@ -135,7 +135,7 @@ describe('EmbeddingService', () => {
         tags: [],
       };
       jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(minimalTask as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(undefined);
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
 
       await service.generateForTask('task2');
 
@@ -152,7 +152,7 @@ describe('EmbeddingService', () => {
   describe('generateForComment', () => {
     it('should generate embedding for a comment', async () => {
       jest.spyOn(prisma.comment, 'findUnique').mockResolvedValue(mockComment as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(undefined);
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
 
       await service.generateForComment('comment1');
 
@@ -176,7 +176,7 @@ describe('EmbeddingService', () => {
   describe('generateForProject', () => {
     it('should generate embedding for a project with description', async () => {
       jest.spyOn(prisma.project, 'findUnique').mockResolvedValue(mockProject as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(undefined);
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
 
       await service.generateForProject('project1');
 
@@ -205,7 +205,7 @@ describe('EmbeddingService', () => {
 
   describe('deleteBySource', () => {
     it('should delete embedding by source type and id', async () => {
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(undefined);
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
 
       await service.deleteBySource(EmbeddingSourceType.TASK, 'task1');
 

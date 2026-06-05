@@ -7,6 +7,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { RequestContextService } from 'src/common/services/request-context/request-context.service';
+import { User } from 'src/generated/prisma/client';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -92,7 +93,7 @@ describe('AuthService', () => {
       const token = 'jwtToken';
 
       (bcrypt.hash as jest.Mock).mockResolvedValue(hashedPassword);
-      jest.spyOn(usersService, 'create').mockResolvedValue(newUser);
+      jest.spyOn(usersService, 'create').mockResolvedValue(newUser as unknown as User);
       jest.spyOn(jwtService, 'sign').mockReturnValue(token);
 
       const result = await service.signup(signUpDto);
@@ -112,7 +113,7 @@ describe('AuthService', () => {
       const user = { id: '1', name: 'Test User', email: signInDto.email, password: 'hashedPassword123' };
       const token = 'jwtToken';
 
-      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(user as unknown as User);
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       jest.spyOn(jwtService, 'sign').mockReturnValue(token);
 
@@ -128,7 +129,7 @@ describe('AuthService', () => {
       const signInDto = { email: 'test@example.com', password: 'wrongpassword' };
       const user = { id: '1', name: 'Test User', email: signInDto.email, password: 'hashedPassword123' };
 
-      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(user as unknown as User);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
       await expect(service.signin(signInDto)).rejects.toThrow(UnauthorizedException);
@@ -149,7 +150,7 @@ describe('AuthService', () => {
       const user = { id: '1', email };
       const token = 'resetToken';
 
-      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(user);
+      jest.spyOn(usersService, 'findByEmail').mockResolvedValue(user as unknown as User);
       jest.spyOn(jwtService, 'sign').mockReturnValue(token);
       jest.spyOn(mailService, 'sendPasswordRequest').mockResolvedValue(undefined);
 
@@ -183,9 +184,11 @@ describe('AuthService', () => {
       const newHashedPassword = 'newHashedPassword';
 
       jest.spyOn(jwtService, 'verify').mockReturnValue(payload);
-      jest.spyOn(usersService, 'findById').mockResolvedValue(user);
+      jest.spyOn(usersService, 'findById').mockResolvedValue(user as never);
       (bcrypt.hash as jest.Mock).mockResolvedValue(newHashedPassword);
-      jest.spyOn(prismaService.user, 'update').mockResolvedValue({ ...user, password: newHashedPassword });
+      jest
+        .spyOn(prismaService.user, 'update')
+        .mockResolvedValue({ ...user, password: newHashedPassword } as unknown as User);
 
       const result = await service.resetPassword(token, newPassword);
 

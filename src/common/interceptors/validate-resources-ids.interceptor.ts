@@ -28,9 +28,24 @@ export class ValidateResourcesIdsInterceptor implements NestInterceptor {
     const projectId = request.params.projectId
     const taskId = request.params.taskId
     const userId = request.params.userId
+    const requesterId = request.user?.id
 
-    const project = await this.prisma.project.findFirst({ where: { id: projectId } })
-    if (!project) throw new NotFoundException('Project not found')
+    if (projectId) {
+      // Autorização de acesso ao projeto: além de existir, o projeto precisa
+      // pertencer ao usuário autenticado (dono) ou tê-lo como colaborador.
+      // Escopar a busca por acesso — e não só por existência — fecha um IDOR:
+      // sem isso, qualquer usuário logado lê/edita/exclui tasks, comentários e o
+      // próprio projeto de terceiros apenas conhecendo o id. Mesma regra de
+      // acesso do ProjectsService. Retornamos 404 (e não 403) de propósito, para
+      // não revelar a existência de projetos a quem não é membro.
+      const project = await this.prisma.project.findFirst({
+        where: {
+          id: projectId,
+          OR: [{ createdById: requesterId }, { collaborators: { some: { userId: requesterId } } }],
+        },
+      })
+      if (!project) throw new NotFoundException('Project not found')
+    }
 
     if (taskId) {
       const task = await this.prisma.task.findFirst({ where: { projectId, id: taskId } })

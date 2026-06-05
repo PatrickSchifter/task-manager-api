@@ -67,7 +67,7 @@ describe('CloudnaryService', () => {
         },
       })
 
-      let capturedCallback: Function
+      let capturedCallback: Function = undefined as any
       cloudinaryMock.uploader.upload_stream.mockImplementation(
         (_options: any, callback: any) => {
           capturedCallback = callback

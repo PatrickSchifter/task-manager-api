@@ -117,7 +117,7 @@ describe('CommentsService', () => {
   describe('findByTaskId', () => {
     it('should return paginated comments for a given task ID', async () => {
       const taskId = 'task1';
-      const query = { page: 1, limit: 10 };
+      const query = { page: '1', limit: '10' };
       const paginatedResult = {
         data: [mockComment],
         meta: {
@@ -204,7 +204,7 @@ describe('CommentsService', () => {
       const userId = 'user1';
 
       jest.spyOn(prismaService.comment, 'findFirst').mockResolvedValue(mockComment as any);
-      jest.spyOn(prismaService.comment, 'delete').mockResolvedValue(undefined);
+      jest.spyOn(prismaService.comment, 'delete').mockResolvedValue(mockComment as any);
 
       await service.delete(commentId);
 

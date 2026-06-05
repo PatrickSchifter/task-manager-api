@@ -168,7 +168,7 @@ describe('TasksService', () => {
       prismaMock.task.count.mockResolvedValue(1)
       prismaMock.task.findMany.mockResolvedValue([mockTask])
 
-      const query: QueryPaginationDTO = { page: 1, limit: 10 }
+      const query: QueryPaginationDTO = { page: '1', limit: '10' }
       const result = await service.findAllByProjectId({ projectId: 'project1', query })
 
       expect(prismaService.task.findMany).toHaveBeenCalledWith({
@@ -231,6 +231,7 @@ describe('TasksService', () => {
         title: 'Moved',
         status: 'DONE' as any,
         priority: 'LOW' as any,
+        assigneeId: 'user1',
       }
 
       await service.update({ id: 'task1', data: updateTaskDto, projectId: 'project1' })
@@ -246,6 +247,7 @@ describe('TasksService', () => {
           title: 'Moved',
           status: 'DONE',
           priority: 'LOW',
+          assigneeId: 'user1',
           dueDate: undefined,
           order: generateKeyBetween(null, 'a0'), // topo, antes do 'a0'
         },
@@ -257,7 +259,7 @@ describe('TasksService', () => {
       prismaMock.task.findFirst.mockResolvedValue({ status: 'TODO' })
       prismaMock.task.findMany.mockResolvedValue([{ order: 'a0' }, { order: 'a1' }])
 
-      const updateTaskDto: TasksRequestDTO = { title: 'Reorder', position: 1 }
+      const updateTaskDto: TasksRequestDTO = { title: 'Reorder', position: 1, assigneeId: 'user1' }
 
       await service.update({ id: 'task1', data: updateTaskDto, projectId: 'project1' })
 
@@ -265,6 +267,7 @@ describe('TasksService', () => {
         where: { id: 'task1', projectId: 'project1' },
         data: {
           title: 'Reorder',
+          assigneeId: 'user1',
           dueDate: undefined,
           status: 'TODO',
           order: generateKeyBetween('a0', 'a1'), // entre os vizinhos
@@ -277,7 +280,7 @@ describe('TasksService', () => {
       prismaMock.task.findFirst.mockResolvedValue({ status: 'TODO' })
       prismaMock.task.findMany.mockResolvedValue([{ order: 'a0' }, { order: 'a1' }])
 
-      const updateTaskDto: TasksRequestDTO = { title: 'ToEnd', position: 99 }
+      const updateTaskDto: TasksRequestDTO = { title: 'ToEnd', position: 99, assigneeId: 'user1' }
 
       await service.update({ id: 'task1', data: updateTaskDto, projectId: 'project1' })
 
@@ -285,6 +288,7 @@ describe('TasksService', () => {
         where: { id: 'task1', projectId: 'project1' },
         data: {
           title: 'ToEnd',
+          assigneeId: 'user1',
           dueDate: undefined,
           status: 'TODO',
           order: generateKeyBetween('a1', null), // depois do último

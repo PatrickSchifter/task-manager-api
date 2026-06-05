@@ -4,6 +4,7 @@ import { ChatService } from './chat.service';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard';
 import { Reflector } from '@nestjs/core';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { ChatMessageDTO, ChatMessagesQueryDTO } from './chat.dto';
 
 describe('ChatController', () => {
   let controller: ChatController;

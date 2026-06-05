@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UsersService } from './users.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Prisma } from 'src/generated/prisma/client';
+import { Prisma, Role } from 'src/generated/prisma/client';
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto';
 
 describe('UsersService', () => {
@@ -72,8 +72,10 @@ describe('UsersService', () => {
 
       const result = await service.create(createUserInput);
 
+      // `create` força `role: USER` (default de segurança: o papel não vem do
+      // cliente, é fixado no servidor), então a chamada ao Prisma o inclui.
       expect(prismaService.user.create).toHaveBeenCalledWith({
-        data: createUserInput,
+        data: { ...createUserInput, role: Role.USER },
         omit: { password: true },
       });
       expect(result).toEqual(expectedUserResult);
@@ -133,7 +135,7 @@ describe('UsersService', () => {
 
   describe('findAll', () => {
     it('should return a paginated list of users and omit password', async () => {
-      const query: QueryPaginationDTO = { page: 1, limit: 10 };
+      const query: QueryPaginationDTO = { page: '1', limit: '10' };
       const paginatedResult = {
         data: [mockUserWithoutPassword],
         meta: {

@@ -3,6 +3,7 @@ import { RequestContextService } from 'src/common/services/request-context/reque
 import { Project } from 'src/generated/prisma/client'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginateOutput } from 'src/utils/pagination.utils'
+import { ProjectDTO } from './projects.dto'
 import { mockedProjects, mockPaginationQuery } from './projects.mocks'
 import { ProjectsService } from './projects.service'
 import { RagService } from '../rag/rag.service'
@@ -135,7 +136,7 @@ describe('ProjectsService', () => {
 
     const result = await service.create({
       name: project.name,
-    })
+    } as ProjectDTO)
 
     expect(result).toEqual(project)
     expect(prisma.projectCollaborator.create).toHaveBeenCalledTimes(1)
@@ -161,7 +162,7 @@ describe('ProjectsService', () => {
 
     const result = await service.update(project.id, {
       name: project.name,
-    })
+    } as ProjectDTO)
 
     expect(result).toEqual(project)
     expect(prisma.project.update).toHaveBeenCalledTimes(1)
@@ -180,7 +181,7 @@ describe('ProjectsService', () => {
 
   it('should not delete collaborators or tasks if project not found', async () => {
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(null)
-    jest.spyOn(prisma.project, 'delete').mockResolvedValue(undefined)
+    jest.spyOn(prisma.project, 'delete').mockResolvedValue(null as unknown as Project)
 
     await service.delete('nonexistent')
 
@@ -193,7 +194,7 @@ describe('ProjectsService', () => {
   it('should not delete collaborators or tasks if user is not the owner', async () => {
     const project = { ...mockedProjects[0], createdById: 'other-user' }
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(project)
-    jest.spyOn(prisma.project, 'delete').mockResolvedValue(undefined)
+    jest.spyOn(prisma.project, 'delete').mockResolvedValue(null as unknown as Project)
 
     await service.delete(project.id)
 

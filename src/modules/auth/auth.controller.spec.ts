@@ -81,7 +81,7 @@ describe('AuthController', () => {
         newPassword: 'newPassword123',
       }
       const serviceResult = { message: 'Password has been reset' }
-      jest.spyOn(authService, 'resetPassword').mockResolvedValue(serviceResult)
+      jest.spyOn(authService, 'resetPassword').mockResolvedValue(serviceResult as never)
 
       const result = await controller.resetPassword(resetPasswordDto)
 

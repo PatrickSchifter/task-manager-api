@@ -63,7 +63,7 @@ describe('CollaboratorsService', () => {
 
   it('should be able to create a collaborator', async () => {
     const collaborator = mockedCollaborators[0]
-    const addData = { userId: 'user-1', role: CollaboratorRole.EDITOR }
+    const addData = { email: 'test@test.com', role: CollaboratorRole.EDITOR }
 
     jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({ id: 'user-1', name: 'Test User', email: 'test@test.com' } as any)
     jest.spyOn(prisma.projectCollaborator, 'create').mockResolvedValue(collaborator)
@@ -79,7 +79,7 @@ describe('CollaboratorsService', () => {
     jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null)
 
     await expect(
-      service.create({ projectId: 'project-1', data: { userId: 'non-existent', role: CollaboratorRole.EDITOR } }),
+      service.create({ projectId: 'project-1', data: { email: 'non-existent@test.com', role: CollaboratorRole.EDITOR } }),
     ).rejects.toThrow(NotFoundException)
   })
 

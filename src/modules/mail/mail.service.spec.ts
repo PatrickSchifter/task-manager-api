@@ -70,7 +70,7 @@ describe('MailService', () => {
       const email = 'test@example.com';
       const token = 'resettoken123';
       const baseUrl = 'http://localhost:3000';
-      const expectedUrl = `${baseUrl}/reset-password?token=${token}`;
+      const expectedUrl = `${baseUrl}/auth/reset-password?token=${token}`;
 
       await service.sendPasswordRequest(email, token);
 

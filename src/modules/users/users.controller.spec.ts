@@ -51,7 +51,7 @@ describe('UsersController', () => {
   // --- findAll ---
   describe('findAll', () => {
     it('should return paginated users', async () => {
-      const query = { page: 1, limit: 10 }
+      const query = { page: '1', limit: '10' }
       const result = await controller.findAll(query)
 
       expect(mockUsersService.findAll).toHaveBeenCalledWith(query)

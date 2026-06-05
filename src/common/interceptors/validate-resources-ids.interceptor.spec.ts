@@ -56,9 +56,20 @@ describe('ValidateResourcesIdsInterceptor', () => {
     expect(prisma.project.findFirst).not.toHaveBeenCalled()
   })
 
-  it('should validate project id and throw if project not found', async () => {
+  // Busca esperada: o projeto só é "encontrado" se o usuário for dono ou
+  // colaborador — é isso que transforma a checagem de existência em checagem de
+  // acesso e fecha o IDOR.
+  const accessWhere = (projectId: string, requesterId: string) => ({
+    where: {
+      id: projectId,
+      OR: [{ createdById: requesterId }, { collaborators: { some: { userId: requesterId } } }],
+    },
+  })
+
+  it('should throw if the user is neither owner nor collaborator (no access)', async () => {
     const mockRequest = {
       params: { projectId: 'project-1' },
+      user: { id: 'intruder' },
     }
 
     jest.spyOn(reflector, 'get').mockReturnValue(true)
@@ -66,17 +77,19 @@ describe('ValidateResourcesIdsInterceptor', () => {
       .spyOn(mockExecutionContext, 'switchToHttp')
       .mockReturnValue({ getRequest: () => mockRequest } as HttpArgumentsHost)
 
+    // Escopada por acesso, a query não retorna nada para um usuário sem vínculo.
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(null)
 
     await expect(interceptor.intercept(mockExecutionContext, mockCallHandler)).rejects.toThrow(
       NotFoundException,
     )
-    expect(prisma.project.findFirst).toHaveBeenCalledWith({ where: { id: 'project-1' } })
+    expect(prisma.project.findFirst).toHaveBeenCalledWith(accessWhere('project-1', 'intruder'))
   })
 
-  it('should validate project and continue if project exists', async () => {
+  it('should allow the owner and continue', async () => {
     const mockRequest = {
       params: { projectId: 'project-1' },
+      user: { id: 'owner-1' },
     }
 
     jest.spyOn(reflector, 'get').mockReturnValue(true)
@@ -88,11 +101,33 @@ describe('ValidateResourcesIdsInterceptor', () => {
     const result = await interceptor.intercept(mockExecutionContext, mockCallHandler)
 
     expect(result).toBeDefined()
-    expect(prisma.project.findFirst).toHaveBeenCalledWith({ where: { id: 'project-1' } })
+    expect(prisma.project.findFirst).toHaveBeenCalledWith(accessWhere('project-1', 'owner-1'))
+  })
+
+  it('should allow a collaborator and continue', async () => {
+    const mockRequest = {
+      params: { projectId: 'project-1' },
+      user: { id: 'collab-1' },
+    }
+
+    jest.spyOn(reflector, 'get').mockReturnValue(true)
+    jest
+      .spyOn(mockExecutionContext, 'switchToHttp')
+      .mockReturnValue({ getRequest: () => mockRequest } as HttpArgumentsHost)
+
+    // A query escopada por acesso já encontra o projeto via colaboração.
+    jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(mockedProjects[0])
+    const result = await interceptor.intercept(mockExecutionContext, mockCallHandler)
+
+    expect(result).toBeDefined()
+    expect(prisma.project.findFirst).toHaveBeenCalledWith(accessWhere('project-1', 'collab-1'))
   })
 
   it('should validate task id and throw if task not found', async () => {
-    const mockRequest = { params: { projectId: 'project-1', taskId: 'task-1' } }
+    const mockRequest = {
+      params: { projectId: 'project-1', taskId: 'task-1' },
+      user: { id: 'owner-1' },
+    }
 
     jest.spyOn(reflector, 'get').mockReturnValue(true)
     jest
@@ -110,7 +145,10 @@ describe('ValidateResourcesIdsInterceptor', () => {
   })
 
   it('should validate project and task and continue if both exists', async () => {
-    const mockRequest = { params: { projectId: 'project-1', taskId: 'task-1' } }
+    const mockRequest = {
+      params: { projectId: 'project-1', taskId: 'task-1' },
+      user: { id: 'owner-1' },
+    }
     jest.spyOn(reflector, 'get').mockReturnValue(true)
     jest
       .spyOn(mockExecutionContext, 'switchToHttp')
@@ -122,7 +160,7 @@ describe('ValidateResourcesIdsInterceptor', () => {
     const result = await interceptor.intercept(mockExecutionContext, mockCallHandler)
 
     expect(result).toBeDefined()
-    expect(prisma.project.findFirst).toHaveBeenCalledWith({ where: { id: 'project-1' } })
+    expect(prisma.project.findFirst).toHaveBeenCalledWith(accessWhere('project-1', 'owner-1'))
     expect(prisma.task.findFirst).toHaveBeenCalledWith({
       where: { id: 'task-1', projectId: 'project-1' },
     })
