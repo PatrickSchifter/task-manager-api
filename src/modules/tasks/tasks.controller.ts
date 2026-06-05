@@ -71,9 +71,11 @@ export class TasksController {
   }
 
   @Put(':taskId')
-  // Reordenar tasks (drag-and-drop) dispara muitos updates em sequência,
-  // por isso esta rota usa um limite bem maior que o global (10/min).
-  @Throttle({ default: { limit: 120, ttl: 60_000 } })
+  // Reordenar tasks (drag-and-drop) no kanban dispara muitos updates em
+  // sequência, por isso esta rota usa um limite bem maior que o global
+  // (10/min). O tracker é por usuário (ver CustomThrottlerGuard), então este
+  // limite é por usuário e não vaza entre usuários atrás do mesmo IP.
+  @Throttle({ default: { limit: 240, ttl: 60_000 } })
   @ApiOkResponse({ type: TaskItemListDTO })
   @ValidateResourcesIds()
   update(
