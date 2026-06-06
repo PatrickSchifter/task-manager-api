@@ -60,7 +60,7 @@ describe('ProjectsController', () => {
 
   describe('findOne', () => {
     it('should be able to return a single project by id', async () => {
-      const project = { ...mockedProjects[0], tasks: [], collaborators: [] }
+      const project = { ...mockedProjects[0], tasks: [], collaborators: [], statuses: [] }
       const { id } = project
 
       jest.spyOn(service, 'findById').mockResolvedValue(project)

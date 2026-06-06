@@ -103,6 +103,10 @@ export class ProjectsService {
             projectId: true,
           },
         },
+        statuses: {
+          orderBy: { order: 'asc' },
+          select: { id: true, name: true, value: true, order: true },
+        },
         createdAt: true,
         updatedAt: true,
         name: true,
@@ -130,9 +134,17 @@ export class ProjectsService {
     }
   }
 
+  private readonly DEFAULT_STATUSES = [
+    { name: 'A Fazer', value: 'TODO', order: 1 },
+    { name: 'Em Progresso', value: 'IN_PROGRESS', order: 2 },
+    { name: 'Concluído', value: 'DONE', order: 3 },
+  ]
+
   async create(actorId: string, data: ProjectDTO) {
+    const { statuses: statusesInput, ...projectData } = data
+
     const project = await this.prisma.project.create({
-      data: { ...data, createdById: actorId },
+      data: { ...projectData, createdById: actorId },
     })
 
     await this.prisma.projectCollaborator.create({
@@ -143,6 +155,12 @@ export class ProjectsService {
       },
     })
 
+    const statusRows = statusesInput?.length
+      ? statusesInput.map((s, i) => ({ name: s.name, value: s.value, order: i + 1, projectId: project.id }))
+      : this.DEFAULT_STATUSES.map((s) => ({ ...s, projectId: project.id }))
+
+    await this.prisma.projectStatus.createMany({ data: statusRows })
+
     if (data.description) {
       this.ragService.dispatchProjectEmbedding(project.id)
     }
@@ -151,7 +169,8 @@ export class ProjectsService {
   }
 
   async update(actorId: string, id: string, data: ProjectDTO) {
-    const updated = await this.prisma.project.update({ where: { id, createdById: actorId }, data })
+    const { statuses: _s, ...projectData } = data
+    const updated = await this.prisma.project.update({ where: { id, createdById: actorId }, data: projectData })
 
     if (data.description) this.ragService.dispatchProjectEmbedding(id)
 

@@ -388,6 +388,7 @@ export const ModelName = {
   ProjectCollaborator: 'ProjectCollaborator',
   Comment: 'Comment',
   Project: 'Project',
+  ProjectStatus: 'ProjectStatus',
   Task: 'Task',
   Tag: 'Tag',
   TaskTag: 'TaskTag',
@@ -408,7 +409,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "projectCollaborator" | "comment" | "project" | "task" | "tag" | "taskTag" | "embedding" | "chatMessage"
+    modelProps: "user" | "projectCollaborator" | "comment" | "project" | "projectStatus" | "task" | "tag" | "taskTag" | "embedding" | "chatMessage"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -705,6 +706,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         count: {
           args: Prisma.ProjectCountArgs<ExtArgs>
           result: runtime.Types.Utils.Optional<Prisma.ProjectCountAggregateOutputType> | number
+        }
+      }
+    }
+    ProjectStatus: {
+      payload: Prisma.$ProjectStatusPayload<ExtArgs>
+      fields: Prisma.ProjectStatusFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.ProjectStatusFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.ProjectStatusFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>
+        }
+        findFirst: {
+          args: Prisma.ProjectStatusFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.ProjectStatusFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>
+        }
+        findMany: {
+          args: Prisma.ProjectStatusFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>[]
+        }
+        create: {
+          args: Prisma.ProjectStatusCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>
+        }
+        createMany: {
+          args: Prisma.ProjectStatusCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.ProjectStatusCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>[]
+        }
+        delete: {
+          args: Prisma.ProjectStatusDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>
+        }
+        update: {
+          args: Prisma.ProjectStatusUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>
+        }
+        deleteMany: {
+          args: Prisma.ProjectStatusDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.ProjectStatusUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.ProjectStatusUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>[]
+        }
+        upsert: {
+          args: Prisma.ProjectStatusUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$ProjectStatusPayload>
+        }
+        aggregate: {
+          args: Prisma.ProjectStatusAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateProjectStatus>
+        }
+        groupBy: {
+          args: Prisma.ProjectStatusGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProjectStatusGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.ProjectStatusCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.ProjectStatusCountAggregateOutputType> | number
         }
       }
     }
@@ -1167,6 +1242,19 @@ export const ProjectScalarFieldEnum = {
 export type ProjectScalarFieldEnum = (typeof ProjectScalarFieldEnum)[keyof typeof ProjectScalarFieldEnum]
 
 
+export const ProjectStatusScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  value: 'value',
+  order: 'order',
+  projectId: 'projectId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProjectStatusScalarFieldEnum = (typeof ProjectStatusScalarFieldEnum)[keyof typeof ProjectStatusScalarFieldEnum]
+
+
 export const TaskScalarFieldEnum = {
   id: 'id',
   title: 'title',
@@ -1342,6 +1430,20 @@ export type ListEnumCollaboratorRoleFieldRefInput<$PrismaModel> = FieldRefInputT
 
 
 /**
+ * Reference to a field of type 'Int'
+ */
+export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+    
+
+
+/**
+ * Reference to a field of type 'Int[]'
+ */
+export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+    
+
+
+/**
  * Reference to a field of type 'TaskStatus'
  */
 export type EnumTaskStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'TaskStatus'>
@@ -1412,16 +1514,16 @@ export type ListEnumMessageStatusFieldRefInput<$PrismaModel> = FieldRefInputType
 
 
 /**
- * Reference to a field of type 'Int'
+ * Reference to a field of type 'Float'
  */
-export type IntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int'>
+export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float'>
     
 
 
 /**
- * Reference to a field of type 'Int[]'
+ * Reference to a field of type 'Float[]'
  */
-export type ListIntFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Int[]'>
+export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
     
 
 /**
@@ -1538,6 +1640,7 @@ export type GlobalOmitConfig = {
   projectCollaborator?: Prisma.ProjectCollaboratorOmit
   comment?: Prisma.CommentOmit
   project?: Prisma.ProjectOmit
+  projectStatus?: Prisma.ProjectStatusOmit
   task?: Prisma.TaskOmit
   tag?: Prisma.TagOmit
   taskTag?: Prisma.TaskTagOmit

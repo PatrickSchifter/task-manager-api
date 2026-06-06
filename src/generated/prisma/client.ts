@@ -60,6 +60,11 @@ export type Comment = Prisma.CommentModel
  */
 export type Project = Prisma.ProjectModel
 /**
+ * Model ProjectStatus
+ * 
+ */
+export type ProjectStatus = Prisma.ProjectStatusModel
+/**
  * Model Task
  * 
  */

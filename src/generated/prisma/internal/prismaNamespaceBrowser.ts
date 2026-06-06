@@ -55,6 +55,7 @@ export const ModelName = {
   ProjectCollaborator: 'ProjectCollaborator',
   Comment: 'Comment',
   Project: 'Project',
+  ProjectStatus: 'ProjectStatus',
   Task: 'Task',
   Tag: 'Tag',
   TaskTag: 'TaskTag',
@@ -126,6 +127,19 @@ export const ProjectScalarFieldEnum = {
 } as const
 
 export type ProjectScalarFieldEnum = (typeof ProjectScalarFieldEnum)[keyof typeof ProjectScalarFieldEnum]
+
+
+export const ProjectStatusScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  value: 'value',
+  order: 'order',
+  projectId: 'projectId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type ProjectStatusScalarFieldEnum = (typeof ProjectStatusScalarFieldEnum)[keyof typeof ProjectStatusScalarFieldEnum]
 
 
 export const TaskScalarFieldEnum = {

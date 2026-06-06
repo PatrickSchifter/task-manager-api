@@ -1,9 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { IsNotEmpty, IsString } from 'class-validator'
+import { Type } from 'class-transformer'
+import { IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
 import { CollaboratorRole, TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
 import { CollaboratorItemListDTO } from '../collaborators/collaborator.dto'
 import { TagDTO } from '../tags/tags.dto'
 import { SubtaskProgressDTO, TaskAssineeDTO, TaskCommentDTO } from '../tasks/tasks.dto'
+
+export class CreateProjectStatusInputDTO {
+  @ApiProperty() @IsString() @IsNotEmpty() name: string
+  @ApiProperty() @IsString() @IsNotEmpty() value: string
+}
 
 export class ProjectDTO {
   @ApiProperty({ description: 'Project name' })
@@ -12,8 +18,15 @@ export class ProjectDTO {
   name: string
 
   @ApiProperty({ description: 'Project description', required: false })
+  @IsOptional()
   @IsString()
   description: string
+
+  @ApiProperty({ type: [CreateProjectStatusInputDTO], required: false })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CreateProjectStatusInputDTO)
+  statuses?: CreateProjectStatusInputDTO[]
 }
 
 export class ProjectTaskDTO {
@@ -60,7 +73,15 @@ export class ProjectItemListDTO {
   membersCount: number
 }
 
+export class ProjectStatusDTO {
+  @ApiProperty() id: string
+  @ApiProperty() name: string
+  @ApiProperty() value: string
+  @ApiProperty() order: number
+}
+
 export class ProjectFullDTO extends ProjectItemListDTO {
   @ApiProperty({ type: [ProjectTaskDTO] }) tasks: ProjectTaskDTO[]
   @ApiProperty({ type: [CollaboratorItemListDTO] }) collaborators: CollaboratorItemListDTO[]
+  @ApiProperty({ type: [ProjectStatusDTO] }) statuses: ProjectStatusDTO[]
 }
