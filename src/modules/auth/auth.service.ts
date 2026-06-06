@@ -55,39 +55,6 @@ export class AuthService {
     }
   }
 
-  /**
-   * Resolve (ou cria) o usuário a partir do perfil do Google.
-   * - Acha por googleId → login direto.
-   * - Acha pelo e-mail (conta criada por senha) → vincula o googleId.
-   * - Não existe → cria conta sem senha.
-   */
-  async validateGoogleUser({
-    googleId,
-    email,
-    name,
-    avatar,
-  }: {
-    googleId: string
-    email?: string
-    name: string
-    avatar?: string
-  }) {
-    if (!email) throw new UnauthorizedException('Conta Google sem e-mail')
-
-    const byGoogle = await this.prisma.user.findUnique({ where: { googleId } })
-    if (byGoogle) return byGoogle
-
-    const byEmail = await this.usersService.findByEmail(email)
-    if (byEmail) {
-      return this.prisma.user.update({
-        where: { id: byEmail.id },
-        data: { googleId, avatar: byEmail.avatar ?? avatar },
-      })
-    }
-
-    return this.usersService.create({ name, email, googleId, avatar })
-  }
-
   async forgotPassword(email: string) {
     const user = await this.usersService.findByEmail(email)
 
