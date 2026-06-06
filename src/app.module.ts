@@ -14,6 +14,7 @@ import { ChatModule } from './modules/chat/chat.module'
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module'
 import { CommentsModule } from './modules/comments/comments.module'
 import { DashboardModule } from './modules/dashboard/dashboard.module'
+import { HealthModule } from './modules/health/health.module'
 import { MailModule } from './modules/mail/mail.module'
 import { ProjectsModule } from './modules/projects/projects.module'
 import { RagModule } from './modules/rag/rag.module'
@@ -41,6 +42,7 @@ import { PrismaModule } from './prisma/prisma.module'
     RagModule,
     ChatModule,
     DashboardModule,
+    HealthModule,
     ThrottlerModule.forRoot([
       {
         name: 'default',
