@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger'
-import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { TaskPriority } from 'src/generated/prisma/enums'
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +34,7 @@ export class DashboardTaskDTO {
   @ApiProperty() project: DashboardProjectDTO
   @ApiProperty({ format: 'date-time', nullable: true }) dueDate: string | null
   @ApiProperty({ enum: TaskPriority }) priority: TaskPriority
-  @ApiProperty({ enum: TaskStatus }) status: TaskStatus
+  @ApiProperty() status: string
 }
 
 // ─── Response ─────────────────────────────────────────────────────────────────

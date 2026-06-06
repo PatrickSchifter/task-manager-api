@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { BadRequestException, Injectable } from '@nestjs/common'
 import { projectAccessWhere } from 'src/common/authorization/project-access'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
 import { Project } from 'src/generated/prisma/client'
@@ -6,7 +6,7 @@ import { CollaboratorRole } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
 import { RagService } from '../rag/rag.service'
-import { ProjectDTO } from './projects.dto'
+import { CreateProjectStatusInputDTO, ProjectDTO } from './projects.dto'
 
 type ProjectListItem = Project & {
   role: CollaboratorRole
@@ -140,6 +140,37 @@ export class ProjectsService {
     { name: 'Concluído', value: 'DONE', order: 3 },
   ]
 
+  private async reconcileStatuses(projectId: string, desired: CreateProjectStatusInputDTO[]) {
+    const existing = await this.prisma.projectStatus.findMany({
+      where: { projectId },
+      select: { id: true, value: true, name: true },
+    })
+    const existingMap = new Map(existing.map((s) => [s.id, s]))
+    const desiredIds = new Set(desired.filter((s) => s.id).map((s) => s.id as string))
+    const toDelete = existing.filter((s) => !desiredIds.has(s.id))
+    for (const s of toDelete) {
+      const count = await this.prisma.task.count({ where: { projectId, status: s.value } })
+      if (count > 0) {
+        throw new BadRequestException(
+          `O status "${s.name}" possui ${count} tarefa(s) associada(s) e não pode ser removido.`,
+        )
+      }
+    }
+    if (toDelete.length) {
+      await this.prisma.projectStatus.deleteMany({ where: { id: { in: toDelete.map((s) => s.id) } } })
+    }
+    for (let i = 0; i < desired.length; i++) {
+      const s = desired[i]
+      if (s.id && existingMap.has(s.id)) {
+        await this.prisma.projectStatus.update({ where: { id: s.id }, data: { name: s.name, order: i + 1 } })
+      } else {
+        await this.prisma.projectStatus.create({
+          data: { name: s.name, value: s.value, order: i + 1, projectId },
+        })
+      }
+    }
+  }
+
   async create(actorId: string, data: ProjectDTO) {
     const { statuses: statusesInput, ...projectData } = data
 
@@ -169,11 +200,10 @@ export class ProjectsService {
   }
 
   async update(actorId: string, id: string, data: ProjectDTO) {
-    const { statuses: _s, ...projectData } = data
+    const { statuses: statusesInput, ...projectData } = data
     const updated = await this.prisma.project.update({ where: { id, createdById: actorId }, data: projectData })
-
+    if (statusesInput !== undefined) await this.reconcileStatuses(id, statusesInput)
     if (data.description) this.ragService.dispatchProjectEmbedding(id)
-
     return updated
   }
 

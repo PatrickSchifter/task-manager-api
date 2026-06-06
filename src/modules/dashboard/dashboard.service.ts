@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common'
 import { RequestContextService } from 'src/common/services/request-context/request-context.service'
-import { TaskStatus } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { DashboardSummaryDTO } from './dashboard.dto'
 
@@ -33,7 +32,7 @@ export class DashboardService {
           where: {
             project: projectWhere,
             parentId: null,
-            status: { in: [TaskStatus.TODO, TaskStatus.IN_PROGRESS] },
+            status: { in: ['TODO', 'IN_PROGRESS'] },
           },
         }),
 
@@ -42,7 +41,7 @@ export class DashboardService {
           where: {
             project: projectWhere,
             parentId: null,
-            status: TaskStatus.DONE,
+            status: 'DONE',
             updatedAt: { gte: sevenDaysAgo },
           },
         }),
@@ -52,7 +51,7 @@ export class DashboardService {
           where: {
             project: projectWhere,
             parentId: null,
-            status: TaskStatus.IN_PROGRESS,
+            status: 'IN_PROGRESS',
           },
         }),
 
@@ -76,7 +75,7 @@ export class DashboardService {
           where: {
             project: projectWhere,
             parentId: null,
-            status: { not: TaskStatus.DONE },
+            status: { not: 'DONE' },
             dueDate: { not: null },
           },
           orderBy: [{ dueDate: 'asc' }, { priority: 'desc' }],
@@ -104,7 +103,7 @@ export class DashboardService {
         id: p.id,
         name: p.name,
         totalTasks: p.tasks.length,
-        doneTasks: p.tasks.filter((t) => t.status === TaskStatus.DONE).length,
+        doneTasks: p.tasks.filter((t) => t.status === 'DONE').length,
       })),
       upcomingTasks: upcomingTasks.map((t) => ({
         id: t.id,

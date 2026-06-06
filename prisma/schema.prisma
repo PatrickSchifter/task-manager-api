@@ -98,17 +98,11 @@ model ProjectStatus {
   @@index([projectId])
 }
 
-enum TaskStatus {
-  TODO
-  IN_PROGRESS
-  DONE
-}
-
 model Task {
   id            String @id @default(uuid())
   title         String
   description   String?
-  status        TaskStatus @default(TODO)
+  status        String @default("TODO")
   priority      TaskPriority @default(MEDIUM)
   dueDate       DateTime?
   projectId     String

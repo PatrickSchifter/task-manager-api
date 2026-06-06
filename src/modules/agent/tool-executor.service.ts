@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common'
 import { projectAccessWhere } from 'src/common/authorization/project-access'
-import { CollaboratorRole, TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { CollaboratorRole, TaskPriority } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { AddCollaboratorDTO } from '../collaborators/collaborator.dto'
 import { CollaboratorsService } from '../collaborators/collaborators.service'
@@ -164,7 +164,7 @@ export class ToolExecutorService {
       data: {
         title: input.title,
         description: input.description,
-        status: input.status as TaskStatus | undefined,
+        status: input.status,
         priority: input.priority as TaskPriority | undefined,
         dueDate: input.dueDate,
       } as TasksRequestDTO,

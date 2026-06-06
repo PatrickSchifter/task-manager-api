@@ -4,7 +4,6 @@ import {
   CollaboratorRole,
   Role,
   TaskPriority,
-  TaskStatus,
   PrismaClient
 } from '../src/generated/prisma/client'
 
@@ -63,7 +62,7 @@ async function main() {
     data: {
       title: 'Criar backend',
       description: 'Configurar NestJS + Prisma',
-      status: TaskStatus.IN_PROGRESS,
+      status: 'IN_PROGRESS',
       priority: TaskPriority.HIGH,
       projectId: project.id,
       assigneeId: user1.id,
@@ -75,7 +74,7 @@ async function main() {
     data: {
       title: 'Criar frontend',
       description: 'Setup Next.js',
-      status: TaskStatus.TODO,
+      status: 'TODO',
       priority: TaskPriority.MEDIUM,
       projectId: project.id,
       assigneeId: user2.id,

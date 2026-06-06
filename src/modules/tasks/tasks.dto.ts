@@ -10,7 +10,7 @@ import {
   IsUUID,
   Min,
 } from 'class-validator'
-import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { TaskPriority } from 'src/generated/prisma/enums'
 import { TagDTO } from '../tags/tags.dto'
 
 export class TasksRequestDTO {
@@ -24,15 +24,10 @@ export class TasksRequestDTO {
   @IsOptional()
   description?: string
 
-  @ApiProperty({
-    description: 'Task status',
-    enum: TaskStatus,
-    default: TaskStatus.TODO,
-    required: false,
-  })
-  @IsEnum(TaskStatus)
+  @ApiProperty({ description: 'Task status', required: false })
+  @IsString()
   @IsOptional()
-  status?: TaskStatus
+  status?: string
 
   @ApiProperty({
     description: 'Task priority',
@@ -94,7 +89,7 @@ class TaskBaseDTO {
   @ApiProperty() id: string
   @ApiProperty() title: string
   @ApiProperty({ nullable: true, required: false }) description?: string | null
-  @ApiProperty({ enum: TaskStatus }) status: TaskStatus
+  @ApiProperty() status: string
   @ApiProperty({ enum: TaskPriority }) priority: TaskPriority
   @ApiProperty({ description: 'Fractional index key for ordering within the status column' })
   order: string

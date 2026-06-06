@@ -1,7 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { projectAccessWhere } from 'src/common/authorization/project-access'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
-import { TaskStatus } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { generateKeyBetween } from 'src/utils/fractional-indexing'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
@@ -53,9 +52,9 @@ function flattenTags<T extends { tags: TaskTagRow[] }>(task: T) {
 }
 
 // Calcula { done, total } a partir das subtarefas (só status).
-function subtaskProgress(subtasks: { status: TaskStatus }[]) {
+function subtaskProgress(subtasks: { status: string }[]) {
   return {
-    done: subtasks.filter((s) => s.status === TaskStatus.DONE).length,
+    done: subtasks.filter((s) => s.status === 'DONE').length,
     total: subtasks.length,
   }
 }
@@ -63,7 +62,7 @@ function subtaskProgress(subtasks: { status: TaskStatus }[]) {
 // Mapeia um item de lista que traz `subtasks: {status}[]`: achata tags e troca o
 // array de subtarefas pelo contador `subtaskProgress`.
 function toListItemWithProgress<
-  T extends { tags: TaskTagRow[]; subtasks: { status: TaskStatus }[] },
+  T extends { tags: TaskTagRow[]; subtasks: { status: string }[] },
 >(task: T) {
   const { subtasks, tags, ...rest } = task
   return {
@@ -112,7 +111,7 @@ export class TasksService {
     // Uma nova task sempre entra no topo da sua coluna: gera uma chave fracionária
     // anterior à do primeiro item da coluna. `position` do payload é ignorado aqui.
     const { position: _ignoredPosition, tags: tagNames, parentId, ...rest } = data
-    const status = data.status ?? TaskStatus.TODO
+    const status = data.status ?? 'TODO'
 
     // Regra de 1 nível: se há parentId, o pai precisa existir no mesmo projeto e
     // não pode ser ele mesmo uma subtarefa.

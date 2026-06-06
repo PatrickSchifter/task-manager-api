@@ -1,12 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger'
 import { Type } from 'class-transformer'
 import { IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator'
-import { CollaboratorRole, TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { CollaboratorRole, TaskPriority } from 'src/generated/prisma/enums'
 import { CollaboratorItemListDTO } from '../collaborators/collaborator.dto'
 import { TagDTO } from '../tags/tags.dto'
 import { SubtaskProgressDTO, TaskAssineeDTO, TaskCommentDTO } from '../tasks/tasks.dto'
 
 export class CreateProjectStatusInputDTO {
+  @ApiProperty({ required: false }) @IsOptional() @IsString() id?: string
   @ApiProperty() @IsString() @IsNotEmpty() name: string
   @ApiProperty() @IsString() @IsNotEmpty() value: string
 }
@@ -33,7 +34,7 @@ export class ProjectTaskDTO {
   @ApiProperty() id: string
   @ApiProperty() title: string
   @ApiProperty({ nullable: true }) description: string
-  @ApiProperty({ enum: TaskStatus, default: TaskStatus.TODO }) status: TaskStatus
+  @ApiProperty() status: string
   @ApiProperty({ enum: TaskPriority, default: TaskPriority.MEDIUM }) priority: TaskPriority
   @ApiProperty({ description: 'Fractional index key for ordering within the status column' })
   order: string
