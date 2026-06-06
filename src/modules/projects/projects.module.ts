@@ -9,5 +9,6 @@ import { ProjectsService } from './projects.service'
   providers: [ProjectsService, RequestContextService],
   controllers: [ProjectsController],
   imports: [EmbeddingModule, RagModule],
+  exports: [ProjectsService],
 })
 export class ProjectsModule {}

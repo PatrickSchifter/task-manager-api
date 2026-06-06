@@ -59,7 +59,13 @@ describe('TasksController (integration)', () => {
       ],
     })
       .overrideGuard(JwtAuthGuard)
-      .useValue({ canActivate: jest.fn().mockResolvedValue(true) })
+      .useValue({
+        // Simula o JwtAuthGuard populando req.user, que o @AuthenticatedUser lê.
+        canActivate: (ctx: any) => {
+          ctx.switchToHttp().getRequest().user = { id: 'user1' }
+          return true
+        },
+      })
       .overrideInterceptor(ValidateResourcesIdsInterceptor)
       .useValue({ intercept: jest.fn((ctx, next) => next.handle()) })
       .compile()
@@ -95,6 +101,7 @@ describe('TasksController (integration)', () => {
         .expect(201)
 
       expect(service.create).toHaveBeenCalledWith({
+        actorId: 'user1',
         data: { title: 'New Task' },
         projectId: validProjectId,
       })
@@ -122,6 +129,7 @@ describe('TasksController (integration)', () => {
         .expect(200)
 
       expect(service.update).toHaveBeenCalledWith({
+        actorId: 'user1',
         data: { title: 'Updated' },
         id: validTaskId,
         projectId: validProjectId,
@@ -136,6 +144,7 @@ describe('TasksController (integration)', () => {
         .expect(204)
 
       expect(service.delete).toHaveBeenCalledWith({
+        actorId: 'user1',
         id: validTaskId,
         projectId: validProjectId,
       })

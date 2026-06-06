@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { Project } from 'src/generated/prisma/client'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginateOutput } from 'src/utils/pagination.utils'
@@ -40,12 +39,6 @@ describe('ProjectsService', () => {
           },
         },
         {
-          provide: RequestContextService,
-          useValue: {
-            getUserId: jest.fn().mockReturnValue('user-1'),
-          },
-        },
-        {
           provide: RagService,
           useValue: {
             dispatchProjectEmbedding: jest.fn(),
@@ -73,7 +66,7 @@ describe('ProjectsService', () => {
     jest.spyOn(prisma.project, 'count').mockResolvedValue(mockedProjects.length)
 
     //chamada da função
-    const result = await service.findAll(mockPaginationQuery)
+    const result = await service.findAll('user-1', mockPaginationQuery)
 
     //comparações
     expect(result).toEqual(
@@ -102,7 +95,7 @@ describe('ProjectsService', () => {
     }
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(dbProject as never)
 
-    const result = await service.findById(base.id)
+    const result = await service.findById('user-1', base.id)
 
     expect(result).toEqual({
       ...base,
@@ -122,7 +115,7 @@ describe('ProjectsService', () => {
     const base = mockedProjects[0]
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue({ ...base, tasks: [] } as never)
 
-    await service.findById(base.id)
+    await service.findById('user-1', base.id)
 
     const arg = (prisma.project.findFirst as jest.Mock).mock.calls[0][0]
     expect(arg.select.tasks.where).toEqual({ parentId: null })
@@ -133,7 +126,7 @@ describe('ProjectsService', () => {
     const project = mockedProjects[0]
     jest.spyOn(prisma.project, 'create').mockResolvedValue(project)
 
-    const result = await service.create({
+    const result = await service.create('user-1', {
       description: project.description,
       name: project.name,
     })
@@ -147,7 +140,7 @@ describe('ProjectsService', () => {
     const project = { ...mockedProjects[0], description: null }
     jest.spyOn(prisma.project, 'create').mockResolvedValue(project)
 
-    const result = await service.create({
+    const result = await service.create('user-1', {
       name: project.name,
     } as ProjectDTO)
 
@@ -160,7 +153,7 @@ describe('ProjectsService', () => {
 
     jest.spyOn(prisma.project, 'update').mockResolvedValue(project)
 
-    const result = await service.update(project.id, {
+    const result = await service.update('user-1', project.id, {
       description: project.description,
       name: project.name,
     })
@@ -173,7 +166,7 @@ describe('ProjectsService', () => {
     const project = { ...mockedProjects[0], description: null }
     jest.spyOn(prisma.project, 'update').mockResolvedValue(project)
 
-    const result = await service.update(project.id, {
+    const result = await service.update('user-1', project.id, {
       name: project.name,
     } as ProjectDTO)
 
@@ -186,7 +179,7 @@ describe('ProjectsService', () => {
 
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(project)
 
-    await service.delete(project.id)
+    await service.delete('user-1', project.id)
 
     expect(prisma.task.deleteMany).toHaveBeenCalledTimes(1)
     expect(prisma.project.delete).toHaveBeenCalledTimes(1)
@@ -196,7 +189,7 @@ describe('ProjectsService', () => {
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(null)
     jest.spyOn(prisma.project, 'delete').mockResolvedValue(null as unknown as Project)
 
-    await service.delete('nonexistent')
+    await service.delete('user-1', 'nonexistent')
 
     expect(prisma.projectCollaborator.deleteMany).not.toHaveBeenCalled()
     expect(prisma.task.deleteMany).not.toHaveBeenCalled()
@@ -209,7 +202,7 @@ describe('ProjectsService', () => {
     jest.spyOn(prisma.project, 'findFirst').mockResolvedValue(project)
     jest.spyOn(prisma.project, 'delete').mockResolvedValue(null as unknown as Project)
 
-    await service.delete(project.id)
+    await service.delete('user-1', project.id)
 
     expect(prisma.projectCollaborator.deleteMany).not.toHaveBeenCalled()
     expect(prisma.task.deleteMany).not.toHaveBeenCalled()

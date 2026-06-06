@@ -1,7 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
-import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { generateKeyBetween } from 'src/utils/fractional-indexing'
 import { RagService } from '../rag/rag.service'
@@ -67,6 +66,10 @@ describe('TasksService', () => {
       update: jest.fn().mockResolvedValue(mockTask),
       delete: jest.fn().mockResolvedValue(undefined),
     },
+    // assertProjectAccess (autoautorização do service): o ator é dono/colaborador.
+    project: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'project1' }),
+    },
     comment: {
       deleteMany: jest.fn().mockResolvedValue(undefined),
     },
@@ -84,7 +87,6 @@ describe('TasksService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: RagService, useValue: ragMock },
         { provide: TagsService, useValue: { resolveNames: jest.fn().mockResolvedValue([]) } },
-        { provide: RequestContextService, useValue: { getUserId: jest.fn().mockReturnValue('user1') } },
       ],
     }).compile()
 
@@ -115,7 +117,7 @@ describe('TasksService', () => {
         assigneeId: 'user1',
       }
 
-      await service.create({ data: dto, projectId: 'project1' })
+      await service.create({ actorId: 'user1', data: dto, projectId: 'project1' })
 
       // Coluna escopada por parentId: null (top-level).
       expect(prismaService.task.findFirst).toHaveBeenCalledWith({
@@ -152,7 +154,7 @@ describe('TasksService', () => {
         position: 5,
       }
 
-      await service.create({ data: dto, projectId: 'project1' })
+      await service.create({ actorId: 'user1', data: dto, projectId: 'project1' })
 
       expect(prismaService.task.create).toHaveBeenCalledWith({
         data: {
@@ -179,7 +181,7 @@ describe('TasksService', () => {
 
       const dto: TasksRequestDTO = { title: 'Subtask', assigneeId: 'user1', parentId: 'task1' }
 
-      await service.create({ data: dto, projectId: 'project1' })
+      await service.create({ actorId: 'user1', data: dto, projectId: 'project1' })
 
       // Validação do pai no mesmo projeto.
       expect(prismaService.task.findFirst).toHaveBeenNthCalledWith(1, {
@@ -205,7 +207,7 @@ describe('TasksService', () => {
 
       const dto: TasksRequestDTO = { title: 'Deep', assigneeId: 'user1', parentId: 'task1' }
 
-      await expect(service.create({ data: dto, projectId: 'project1' })).rejects.toThrow(
+      await expect(service.create({ actorId: 'user1', data: dto, projectId: 'project1' })).rejects.toThrow(
         BadRequestException,
       )
       expect(prismaService.task.create).not.toHaveBeenCalled()
@@ -216,7 +218,7 @@ describe('TasksService', () => {
 
       const dto: TasksRequestDTO = { title: 'Orphan', assigneeId: 'user1', parentId: 'missing' }
 
-      await expect(service.create({ data: dto, projectId: 'project1' })).rejects.toThrow(
+      await expect(service.create({ actorId: 'user1', data: dto, projectId: 'project1' })).rejects.toThrow(
         NotFoundException,
       )
       expect(prismaService.task.create).not.toHaveBeenCalled()
@@ -293,7 +295,7 @@ describe('TasksService', () => {
         assigneeId: 'user2',
       }
 
-      await service.update({ id: 'task1', data: dto, projectId: 'project1' })
+      await service.update({ id: 'task1', actorId: 'user1', data: dto, projectId: 'project1' })
 
       expect(prismaService.task.findMany).not.toHaveBeenCalled()
       expect(prismaService.task.update).toHaveBeenCalledWith({
@@ -315,7 +317,7 @@ describe('TasksService', () => {
 
       const dto: TasksRequestDTO = { title: 'Reorder', position: 1, assigneeId: 'user1' }
 
-      await service.update({ id: 'sub1', data: dto, projectId: 'project1' })
+      await service.update({ id: 'sub1', actorId: 'user1', data: dto, projectId: 'project1' })
 
       expect(prismaService.task.findMany).toHaveBeenCalledWith({
         where: { projectId: 'project1', status: 'TODO', parentId: 'task1', id: { not: 'sub1' } },
@@ -342,7 +344,7 @@ describe('TasksService', () => {
 
       const dto: TasksRequestDTO = { title: 'NoReparent', parentId: 'other', assigneeId: 'user1' } as any
 
-      await service.update({ id: 'task1', data: dto, projectId: 'project1' })
+      await service.update({ id: 'task1', actorId: 'user1', data: dto, projectId: 'project1' })
 
       const updateArg = (prismaService.task.update as jest.Mock).mock.calls[0][0]
       expect(updateArg.data).not.toHaveProperty('parentId')
@@ -356,7 +358,7 @@ describe('TasksService', () => {
         subtasks: [{ id: 's1' }, { id: 's2' }],
       })
 
-      await service.delete({ id: 'task1', projectId: 'project1' })
+      await service.delete({ actorId: 'user1', id: 'task1', projectId: 'project1' })
 
       // Comentários do pai + subtarefas removidos antes do delete.
       expect(prismaService.comment.deleteMany).toHaveBeenCalledWith({
@@ -375,7 +377,7 @@ describe('TasksService', () => {
     it('reindexes the parent when a subtask is deleted', async () => {
       prismaMock.task.findFirst.mockResolvedValue({ parentId: 'task1', subtasks: [] })
 
-      await service.delete({ id: 'sub1', projectId: 'project1' })
+      await service.delete({ actorId: 'user1', id: 'sub1', projectId: 'project1' })
 
       expect(prismaService.comment.deleteMany).toHaveBeenCalledWith({
         where: { taskId: { in: ['sub1'] } },
@@ -387,7 +389,7 @@ describe('TasksService', () => {
     it('throws when the task is not found in the project', async () => {
       prismaMock.task.findFirst.mockResolvedValue(null)
 
-      await expect(service.delete({ id: 'nope', projectId: 'project1' })).rejects.toThrow(
+      await expect(service.delete({ actorId: 'user1', id: 'nope', projectId: 'project1' })).rejects.toThrow(
         NotFoundException,
       )
       expect(prismaService.task.delete).not.toHaveBeenCalled()

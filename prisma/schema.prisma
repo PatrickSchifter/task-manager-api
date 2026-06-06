@@ -191,6 +191,7 @@ model ChatMessage {
   response  String?       @db.Text
   status    MessageStatus @default(QUEUED)
   filters   Json?
+  actions   Json?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

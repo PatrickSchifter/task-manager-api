@@ -1,14 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { CommentsService } from './comments.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { RequestContextService } from 'src/common/services/request-context/request-context.service';
 import { NotFoundException } from '@nestjs/common';
 import { RagService } from '../rag/rag.service';
 
 describe('CommentsService', () => {
   let service: CommentsService;
   let prismaService: PrismaService;
-  let requestContextService: RequestContextService;
 
   const mockComment = {
     id: 'comment1',
@@ -43,12 +41,11 @@ describe('CommentsService', () => {
               update: jest.fn().mockResolvedValue(mockComment),
               delete: jest.fn().mockResolvedValue(undefined),
             },
-          },
-        },
-        {
-          provide: RequestContextService,
-          useValue: {
-            getUserId: jest.fn().mockReturnValue('user1'),
+            // assertTaskAccess (autoautorização no create): task existe e o ator
+            // é dono/colaborador do projeto dela.
+            task: {
+              findFirst: jest.fn().mockResolvedValue({ id: 'task1' }),
+            },
           },
         },
         {
@@ -63,7 +60,6 @@ describe('CommentsService', () => {
 
     service = module.get<CommentsService>(CommentsService);
     prismaService = module.get<PrismaService>(PrismaService);
-    requestContextService = module.get<RequestContextService>(RequestContextService);
 
     jest.clearAllMocks();
   });
@@ -81,9 +77,8 @@ describe('CommentsService', () => {
       const expectedComment = { ...mockComment, content: 'New Comment', taskId, authorId: userId };
       jest.spyOn(prismaService.comment, 'create').mockResolvedValue(expectedComment as any);
 
-      const result = await service.create({ data: addCommentDto, taskId });
+      const result = await service.create({ actorId: userId, data: addCommentDto, taskId });
 
-      expect(requestContextService.getUserId).toHaveBeenCalled();
       expect(prismaService.comment.create).toHaveBeenCalledWith({
         data: {
           ...addCommentDto,
@@ -173,9 +168,8 @@ describe('CommentsService', () => {
       jest.spyOn(prismaService.comment, 'findFirst').mockResolvedValue(mockComment as any);
       jest.spyOn(prismaService.comment, 'update').mockResolvedValue(updatedComment as any);
 
-      const result = await service.update({ data: updateCommentDto, id: commentId });
+      const result = await service.update({ actorId: userId, data: updateCommentDto, id: commentId });
 
-      expect(requestContextService.getUserId).toHaveBeenCalled();
       expect(prismaService.comment.findFirst).toHaveBeenCalledWith({ where: { id: commentId } });
       expect(prismaService.comment.update).toHaveBeenCalledWith({
         where: {
@@ -194,7 +188,7 @@ describe('CommentsService', () => {
 
       jest.spyOn(prismaService.comment, 'findFirst').mockResolvedValue(null);
 
-      await expect(service.update({ data: updateCommentDto, id: commentId })).rejects.toThrow(NotFoundException);
+      await expect(service.update({ actorId: 'user1', data: updateCommentDto, id: commentId })).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -206,9 +200,8 @@ describe('CommentsService', () => {
       jest.spyOn(prismaService.comment, 'findFirst').mockResolvedValue(mockComment as any);
       jest.spyOn(prismaService.comment, 'delete').mockResolvedValue(mockComment as any);
 
-      await service.delete(commentId);
+      await service.delete({ actorId: userId, id: commentId });
 
-      expect(requestContextService.getUserId).toHaveBeenCalled();
       expect(prismaService.comment.findFirst).toHaveBeenCalledWith({
         where: { id: commentId, authorId: userId },
       });
@@ -222,7 +215,7 @@ describe('CommentsService', () => {
 
       jest.spyOn(prismaService.comment, 'findFirst').mockResolvedValue(null);
 
-      await expect(service.delete(commentId)).rejects.toThrow(NotFoundException);
+      await expect(service.delete({ actorId: 'user1', id: commentId })).rejects.toThrow(NotFoundException);
     });
   });
 });

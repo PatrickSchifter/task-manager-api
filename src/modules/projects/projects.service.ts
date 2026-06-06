@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
+import { projectAccessWhere } from 'src/common/authorization/project-access'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
-import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { Project } from 'src/generated/prisma/client'
 import { CollaboratorRole } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
@@ -17,27 +17,21 @@ type ProjectListItem = Project & {
 export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly requestContext: RequestContextService,
     private readonly ragService: RagService,
   ) {}
 
-  async findAll(query?: QueryPaginationDTO): Promise<PaginatedResponseDTO<ProjectListItem>> {
-    const userId = this.requestContext.getUserId()
+  // `actorId` é o usuário em nome de quem a operação roda. No caminho HTTP vem do
+  // JWT (via @AuthenticatedUser no controller); no caminho da fila (chat/MCP) vem
+  // do payload da mensagem. Os services não dependem mais do request-scope.
+  async findAll(
+    actorId: string,
+    query?: QueryPaginationDTO,
+  ): Promise<PaginatedResponseDTO<ProjectListItem>> {
+    const userId = actorId
 
     const { skip, take } = paginate(query)
 
-    const where = {
-      OR: [
-        { createdById: userId },
-        {
-          collaborators: {
-            some: {
-              userId: userId,
-            },
-          },
-        },
-      ],
-    }
+    const where = projectAccessWhere(userId)
 
     const projects = await this.prisma.project.findMany({
       where,
@@ -70,22 +64,11 @@ export class ProjectsService {
     return paginateOutput({ data, total, query })
   }
 
-  async findById(id: string) {
-    const userId = this.requestContext.getUserId()
-
+  async findById(actorId: string, id: string) {
     const project = await this.prisma.project.findFirst({
       where: {
         id,
-        OR: [
-          { createdById: userId },
-          {
-            collaborators: {
-              some: {
-                userId: userId,
-              },
-            },
-          },
-        ],
+        ...projectAccessWhere(actorId),
       },
       select: {
         tasks: {
@@ -147,10 +130,9 @@ export class ProjectsService {
     }
   }
 
-  async create(data: ProjectDTO) {
-    const userId = this.requestContext.getUserId()
+  async create(actorId: string, data: ProjectDTO) {
     const project = await this.prisma.project.create({
-      data: { ...data, createdById: userId },
+      data: { ...data, createdById: actorId },
     })
 
     await this.prisma.projectCollaborator.create({
@@ -168,26 +150,24 @@ export class ProjectsService {
     return project
   }
 
-  async update(id: string, data: ProjectDTO) {
-    const userId = this.requestContext.getUserId()
-    const updated = await this.prisma.project.update({ where: { id, createdById: userId }, data })
+  async update(actorId: string, id: string, data: ProjectDTO) {
+    const updated = await this.prisma.project.update({ where: { id, createdById: actorId }, data })
 
     if (data.description) this.ragService.dispatchProjectEmbedding(id)
 
     return updated
   }
 
-  async delete(id: string) {
-    const userId = this.requestContext.getUserId()
+  async delete(actorId: string, id: string) {
     const project = await this.prisma.project.findFirst({ where: { id } })
 
-    if (project?.createdById === userId) {
+    if (project?.createdById === actorId) {
       await this.prisma.projectCollaborator.deleteMany({ where: { projectId: id } })
       await this.prisma.comment.deleteMany({ where: { task: { projectId: id } } })
       await this.prisma.task.deleteMany({ where: { projectId: id } })
     }
 
-    await this.prisma.project.delete({ where: { id, createdById: userId } })
+    await this.prisma.project.delete({ where: { id, createdById: actorId } })
     this.ragService.dispatchProjectDelete(id)
     return
   }

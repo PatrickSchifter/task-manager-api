@@ -9,5 +9,6 @@ import { CommentsService } from './comments.service'
   providers: [CommentsService, RequestContextService],
   controllers: [CommentsController],
   imports: [EmbeddingModule, RagModule],
+  exports: [CommentsService],
 })
 export class CommentsModule {}

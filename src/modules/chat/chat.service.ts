@@ -58,10 +58,14 @@ export class ChatService {
     return updated
   }
 
-  async setDelivered(id: string, response: string) {
+  async setDelivered(id: string, response: string, actions?: Prisma.InputJsonValue) {
     const updated = await this.prisma.chatMessage.update({
       where: { id },
-      data: { status: MessageStatus.DELIVERED, response },
+      data: {
+        status: MessageStatus.DELIVERED,
+        response,
+        ...(actions !== undefined ? { actions } : {}),
+      },
     })
     this.chatGateway.emitStatus(updated.userId, updated)
     return updated

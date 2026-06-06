@@ -100,9 +100,7 @@ describe('AuthService', () => {
 
       expect(bcrypt.hash).toHaveBeenCalledWith(signUpDto.password, 12);
       expect(usersService.create).toHaveBeenCalledWith({ ...signUpDto, password: hashedPassword });
-      expect(jwtService.sign).toHaveBeenCalledWith({
-        sub: { id: newUser.id },
-      });
+      expect(jwtService.sign).toHaveBeenCalledWith({ sub: newUser.id });
       expect(result).toEqual({ token });
     });
   });

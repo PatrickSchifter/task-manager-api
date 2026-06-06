@@ -184,6 +184,7 @@ export const ChatMessageScalarFieldEnum = {
   response: 'response',
   status: 'status',
   filters: 'filters',
+  actions: 'actions',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const

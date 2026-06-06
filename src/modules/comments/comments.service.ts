@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
+import { projectAccessWhere } from 'src/common/authorization/project-access'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
-import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { Comment } from 'src/generated/prisma/client'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
@@ -20,17 +20,28 @@ const authorAttributes = {
 export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly requestContext: RequestContextService,
     private readonly ragService: RagService,
   ) {}
 
-  async create({ data, taskId }: { data: AddCommentDTO; taskId: string }) {
-    const userId = this.requestContext.getUserId()
+  // Autoriza o ator a comentar na task: a task precisa existir e pertencer a um
+  // projeto onde o ator é dono ou colaborador. No HTTP o
+  // ValidateResourcesIdsInterceptor já validou; repetido aqui para que o service
+  // seja seguro ao ser chamado fora da request (consumer da fila chat/MCP).
+  private async assertTaskAccess(actorId: string, taskId: string) {
+    const task = await this.prisma.task.findFirst({
+      where: { id: taskId, project: projectAccessWhere(actorId) },
+      select: { id: true },
+    })
+    if (!task) throw new NotFoundException('Task not found')
+  }
+
+  async create({ actorId, data, taskId }: { actorId: string; data: AddCommentDTO; taskId: string }) {
+    await this.assertTaskAccess(actorId, taskId)
     const comment = await this.prisma.comment.create({
       data: {
         ...data,
         task: { connect: { id: taskId } },
-        author: { connect: { id: userId } },
+        author: { connect: { id: actorId } },
       },
       include: { author: authorAttributes },
     })
@@ -81,15 +92,14 @@ export class CommentsService {
     })
   }
 
-  async update({ data, id }: { data: UpdateCommentDTO; id: string }) {
-    const userId = this.requestContext.getUserId()
+  async update({ actorId, data, id }: { actorId: string; data: UpdateCommentDTO; id: string }) {
     const comment = await this.prisma.comment.findFirst({ where: { id } })
     if (!comment) throw new NotFoundException('Comment not found')
 
     const updated = await this.prisma.comment.update({
       where: {
         id,
-        authorId: userId,
+        authorId: actorId,
       },
       data,
       include: { author: authorAttributes },
@@ -100,13 +110,12 @@ export class CommentsService {
     return updated
   }
 
-  async delete(id: string) {
-    const userId = this.requestContext.getUserId()
-    const comment = await this.prisma.comment.findFirst({ where: { id, authorId: userId } })
+  async delete({ actorId, id }: { actorId: string; id: string }) {
+    const comment = await this.prisma.comment.findFirst({ where: { id, authorId: actorId } })
 
     if (!comment) throw new NotFoundException('Comment not found')
 
-    await this.prisma.comment.delete({ where: { id, authorId: userId } })
+    await this.prisma.comment.delete({ where: { id, authorId: actorId } })
     this.ragService.dispatchDelete('COMMENT', id)
 
     return

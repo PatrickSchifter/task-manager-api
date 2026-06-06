@@ -21,11 +21,13 @@ import {
   ApiResponse,
 } from '@nestjs/swagger'
 import { Throttle } from '@nestjs/throttler'
+import { AuthenticatedUser } from 'src/common/decorators/authenticated-user.decorator'
 import { ValidateResourcesIds } from 'src/common/decorators/validate-resources-ids.decorator'
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
 import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
 import { ApiPaginatedResponse } from 'src/common/swagger/api-paginated-response'
+import type { User } from 'src/generated/prisma/client'
 import { TaskFullDTO, TaskItemListDTO, TasksRequestDTO } from '../tasks/tasks.dto'
 import { TasksService } from './tasks.service'
 
@@ -53,8 +55,13 @@ export class TasksController {
   @ApiCreatedResponse({ type: TaskItemListDTO })
   @HttpCode(HttpStatus.CREATED)
   @ValidateResourcesIds()
-  create(@Param('projectId', ParseUUIDPipe) projectId: string, @Body() data: TasksRequestDTO) {
+  create(
+    @AuthenticatedUser() user: User,
+    @Param('projectId', ParseUUIDPipe) projectId: string,
+    @Body() data: TasksRequestDTO,
+  ) {
     return this.taskService.create({
+      actorId: user.id,
       data,
       projectId,
     })
@@ -89,11 +96,12 @@ export class TasksController {
   @ApiOkResponse({ type: TaskItemListDTO })
   @ValidateResourcesIds()
   update(
+    @AuthenticatedUser() user: User,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
     @Body() data: TasksRequestDTO,
   ) {
-    return this.taskService.update({ data, id: taskId, projectId })
+    return this.taskService.update({ actorId: user.id, data, id: taskId, projectId })
   }
 
   @Delete(':taskId')
@@ -101,9 +109,10 @@ export class TasksController {
   @ApiNoContentResponse()
   @ValidateResourcesIds()
   delete(
+    @AuthenticatedUser() user: User,
     @Param('taskId', ParseUUIDPipe) taskId: string,
     @Param('projectId', ParseUUIDPipe) projectId: string,
   ) {
-    return this.taskService.delete({ id: taskId, projectId })
+    return this.taskService.delete({ actorId: user.id, id: taskId, projectId })
   }
 }

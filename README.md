@@ -5,8 +5,8 @@
 ### A task management SaaS you can actually *talk to*
 
 [![Live Demo](https://img.shields.io/badge/live-tasks.solutlabs.com.br-2ea44f?style=flat-square)](https://tasks.solutlabs.com.br)
-[![Tests](https://img.shields.io/badge/tests-271%20passing-brightgreen?style=flat-square)](#tests)
-[![Coverage](https://img.shields.io/badge/coverage-95%25-brightgreen?style=flat-square)](#tests)
+[![Tests](https://img.shields.io/badge/tests-272%20passing-brightgreen?style=flat-square)](#tests)
+[![Coverage](https://img.shields.io/badge/coverage-93%25-brightgreen?style=flat-square)](#tests)
 [![NestJS](https://img.shields.io/badge/NestJS-11-e0234e?style=flat-square&logo=nestjs)](https://nestjs.com)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](#license)
 
@@ -23,12 +23,13 @@ Most task managers just *store* your work. This one lets you **have a conversati
 Task Manager is a full SaaS platform where teams organize projects, tasks, and comments — but the part that makes it special is the built-in **AI assistant**. Instead of clicking through filters, you can simply ask:
 
 > *"What are my high-priority tasks this week?"*
-> *"Is anyone working on the frontend?"*
 > *"What did the team say about the login bug?"*
+> *"Create a task to review the Q4 report in the Marketing project"*
+> *"Invite ana@acme.com to the Backend project"*
 
-…and get a real, accurate answer based on **your actual data** — not a generic chatbot guess.
+…and get a real, accurate answer — or have it **done for you** — based on **your actual data**, not a generic chatbot guess.
 
-It's **live in production**, runs on cloud infrastructure with automated deployments, and is backed by **271 automated tests (95% coverage)**.
+It's **live in production**, runs on cloud infrastructure with automated deployments, and is backed by **272 automated tests (~93% coverage)**.
 
 ### Why this project is interesting
 
@@ -37,12 +38,12 @@ It's **live in production**, runs on cloud infrastructure with automated deploym
 | 🤖 **Talk to your data** | A real AI assistant that answers questions about your own projects and tasks — grounded in your data, with zero made-up answers. |
 | ⚡ **Built to scale** | Heavy AI work runs in the background through message queues, so the app stays instant and responsive no matter what the AI is doing. |
 | ☁️ **Actually shipped** | Not a toy demo — it's deployed, monitored, and reachable at a real domain with automated build-and-deploy on every push. |
-| 🧪 **Engineered carefully** | 271 tests covering 95% of the codebase. The business logic that matters is tested end to end. |
+| 🧪 **Engineered carefully** | 272 tests covering ~93% of the codebase. The business logic that matters is tested end to end. |
 | 🔒 **Secure by design** | Every answer respects who you are — you can never see data from projects you're not part of, even by accident. |
 
 ### What this project demonstrates
 
-A complete, production-grade backend built from scratch and shipped to real users — covering **API design**, **authentication & access control**, **AI/LLM integration (RAG)**, **event-driven architecture**, **database design with vector search**, **automated testing**, and **cloud deployment with CI/CD**. It's the kind of system that shows not just *writing code*, but *delivering a working product*.
+A complete, production-grade backend built from scratch and shipped to real users — covering **API design**, **authentication & access control**, **AI/LLM integration (RAG + agentic tool-use)**, **event-driven architecture**, **database design with vector search**, **automated testing**, and **cloud deployment with CI/CD**. It's the kind of system that shows not just *writing code*, but *delivering a working product*.
 
 > 💡 **In one line:** a task manager with a ChatGPT-style assistant that actually knows your projects — designed, built, tested, and deployed end to end.
 
@@ -58,7 +59,7 @@ Everything below is the engineering deep-dive: architecture, the AI pipeline, th
 
 ## What makes this project stand out (technically)
 
-Beyond standard CRUD, Task Manager ships with a full **RAG (Retrieval-Augmented Generation)** pipeline that indexes every project, task, and comment as vector embeddings in PostgreSQL. Natural language questions are answered with intelligent, context-aware responses grounded in real data — not hallucinations.
+Beyond standard CRUD, Task Manager ships with a full **RAG (Retrieval-Augmented Generation)** pipeline that indexes every project, task, and comment as vector embeddings in PostgreSQL — wrapped in an **agentic chat assistant** that runs a tool-use loop with Claude. The assistant doesn't just answer questions grounded in real data; it can also *act* — creating projects, tasks, and comments or inviting collaborators — all within the user's permissions.
 
 The entire pipeline is **end-to-end asynchronous**: from the moment a user sends a message to the moment the answer is ready, every step runs through RabbitMQ queues — decoupled, observable, and independently scalable.
 
@@ -66,9 +67,13 @@ The entire pipeline is **end-to-end asynchronous**: from the moment a user sends
 
 ## Features
 
-### AI-Powered Chat Assistant (RAG)
+### AI-Powered Chat Assistant (Agentic Tool-Use)
 
-The semantic search and chat layer is the most technically ambitious part of this project. It goes beyond a simple "embed and search" implementation — it uses a **two-stage AI pipeline** with structured pre-filtering and conversational context, making answers dramatically more relevant and precise.
+The chat layer is the most technically ambitious part of this project. It's not a plain "embed and search" chatbot — it's an **agentic assistant** running a tool-use loop with **Claude (Anthropic)**. Turn by turn, the model decides whether to *answer* a question (by searching your data) or *act* on your behalf — create a project, create a task, comment, invite a collaborator — all grounded in your data and strictly scoped to your permissions.
+
+> *"What are my high-priority tasks this week?"* → answers from your data
+> *"Create a task 'Fix login bug' in the Marketing project"* → resolves the project by name, then creates it
+> *"Invite ana@acme.com to the Backend project as editor"* → adds the collaborator
 
 #### How a message flows through the system
 
@@ -85,9 +90,9 @@ POST /v1/chat { "message": "What tasks are still pending?" }
   → Returns { id, status: "QUEUED", ... } immediately
 ```
 
-**Stage 0.5 — Conversational Context**
+**Stage 1 — Conversational Context**
 
-Before any AI call is made, the system fetches the last 5 delivered messages from the user's conversation history. Each message carries both the original question (`content`) and the assistant's answer (`response`), which are formatted into a structured history block:
+Before any model call, the system loads the last few delivered messages from the user's history and replays them as alternating `user` / `assistant` turns. This lets the agent resolve follow-up questions and implicit references ("those tasks", "the previous one", "now only the critical ones") across turns without the user repeating context.
 
 ```
 USER: What tasks are still pending?
@@ -96,56 +101,46 @@ ASSISTANT: You have 3 pending tasks: ...
 USER: Now only the high priority ones
 ```
 
-This history is injected into both AI calls — the filter parser and the response generator — enabling the system to resolve follow-up questions, implicit references ("those tasks", "the previous ones", "now only the critical ones"), and multi-turn refinements without the user having to repeat context.
+The message is marked `PROCESSING` and the transition is pushed to the client.
 
-The vector search query itself remains the raw current message — history is intentionally excluded from embedding lookup to avoid noise in similarity scoring.
+**Stage 2 — Agentic Tool-Use Loop (Claude)**
 
-**Stage 1 — Structured Pre-filtering (1st AI call)**
+The `AgentConsumer` hands the message to the `AgentService`, which runs a bounded loop against the configured LLM — **OpenAI `gpt-4o-mini`** by default, or **Anthropic `claude-sonnet-4-6`**, selected via `AGENT_PROVIDER` (the tool catalog and `ToolExecutorService` are provider-agnostic; only the wire format differs). On each turn the model either returns a final answer or requests one or more tool calls; the system executes them, feeds the results back, and lets the model continue until it's done (capped at 10 iterations):
 
-The `RagConsumer` picks up the event from the queue. Before touching any vector search, it makes a first call to GPT-4o mini with a specialized system prompt that acts as a **query parser**. The model reads both the conversation history and the user's current question, and returns a structured JSON object with filters:
-
-```json
-{
-  "status": ["TODO", "IN_PROGRESS"],
-  "priority": ["HIGH", "URGENT"],
-  "sourceTypes": ["TASK", "COMMENT"]
-}
+```
+model → tool_use → ToolExecutor.execute → tool_result → model → … → end_turn
 ```
 
-Because the model has access to the conversation history, it can correctly resolve follow-up messages. For example:
+A single loop — no brittle "is this a question or a command?" classifier. The model is handed every tool, including the search tool, and decides for itself whether to *answer* or *act*.
 
-| History | Current message | Extracted filters |
-|---|---|---|
-| "What tasks are overdue?" | "Now only the high priority ones" | `{ "status": ["TODO"], "priority": ["HIGH"] }` |
+| Tool | What it does |
+|---|---|
+| `search_knowledge_base` | Semantic search over the user's tasks / projects / comments (the RAG pipeline below), with optional `status` / `priority` / `projectId` / `sourceType` filters the model chooses |
+| `find_project_by_name` | Resolve a project name → UUID within the user's accessible projects |
+| `find_task` | Resolve a task title → UUID |
+| `create_project` | Create a project (the caller becomes owner) |
+| `create_task` | Create a task in a project (resolving `projectId` first) |
+| `add_comment` | Add a comment to a task |
+| `invite_collaborator` | Add an existing user as a collaborator (owner-only) |
 
-These filters are persisted back to the message record (status: `PROCESSING`) and used in the next step. This is what separates this pipeline from a naive RAG implementation — instead of doing a wide vector search over all data and hoping the model figures it out, we narrow down the candidate set *before* computing any similarity scores.
+**Read tools are grounded in the RAG pipeline; write tools are authorized per-actor.** Each write tool re-checks ownership/collaboration on the target before mutating — the request-scoped HTTP guards don't run inside the queue, so every domain service self-authorizes from the `actorId` carried on the message.
 
-**Stage 2 — Hybrid Search (Relational + Vector)**
+**Stage 2a — Hybrid Search (inside `search_knowledge_base`)**
 
-With the structured filters in hand, the system runs a two-part query:
-
-First, a standard relational query against the `Task`, `Comment`, and `Project` tables applies the extracted filters (`status`, `priority`, `projectId`). This returns a precise list of `sourceId`s that match the user's intent. Access control is enforced here — only entities belonging to projects the user is a collaborator on are included.
-
-Then, the vector similarity search runs exclusively over the embeddings whose `sourceId`s are in that filtered set. Instead of comparing the user's query against thousands of embeddings, it compares against only the relevant ones — making the search both faster and more accurate.
+When the model calls `search_knowledge_base`, it runs the two-part retrieval that grounds every answer. First, a relational query against `Task` / `Comment` / `Project` applies the model-chosen filters and returns the matching `sourceId`s — scoped to projects the user can access. Then a `pgvector` similarity search runs **only** over the embeddings in that filtered set, instead of the whole table — both faster and more precise.
 
 ```sql
 SELECT sourceType, sourceId, content,
        1 - (vector <=> $query_vector) AS similarity
 FROM "Embedding"
-WHERE (sourceType, sourceId) IN (/* filtered IDs from relational query */)
+WHERE (sourceType, sourceId) IN (/* filtered, access-checked IDs */)
 ORDER BY similarity DESC
 LIMIT 5
 ```
 
-**Stage 3 — Response Generation (2nd AI call)**
+**Stage 3 — Persist & deliver**
 
-The top results are assembled into a rich context block and sent to GPT-4o mini alongside the conversation history and the current message. The model receives three clearly separated inputs:
-
-- **Conversation History** — to resolve references like "those", "these", "the previous ones"
-- **Retrieved Context** — the actual task/project/comment data from the vector search
-- **Current User Message** — the question to answer
-
-The model is instructed to answer **only** based on the provided context — no hallucinations, no invented data. The response is persisted with status `DELIVERED`.
+When the model finishes, its answer is persisted with status `DELIVERED`, together with a structured `actions[]` record of every tool the agent ran (tool name, input, result). The model is instructed to answer **only** from the retrieved context — no invented data — and the `actions[]` trail lets the client render "✅ Task created" affordances and keeps a full audit of what the assistant did on the user's behalf.
 
 **Real-time delivery (WebSocket) — with polling fallback**
 
@@ -179,13 +174,13 @@ Every state transition is persisted to the `chat_messages` table, giving full ob
 
 | Design choice | Why it matters |
 |---|---|
-| **Async queue** | The API never blocks on AI calls. A slow OpenAI response doesn't affect other users or endpoints |
+| **Async queue** | The API never blocks on model calls. A slow LLM response doesn't affect other users or endpoints |
 | **Real-time push** | Status transitions are emitted over a WebSocket the instant they're persisted — no client polling loop in the happy path, with HTTP polling kept as a transparent fallback |
-| **Two-stage AI** | The first AI call converts vague natural language into precise database filters. The second AI call generates a grounded answer from the right data |
+| **Single agentic loop** | One tool-use loop lets the model decide between answering (search) and acting (create/comment/invite) — no fragile separate intent classifier |
 | **Hybrid search** | Relational pre-filtering eliminates irrelevant embeddings before vector comparison, improving both precision and performance |
-| **Conversational context** | The last 5 delivered messages are injected into both AI calls, enabling multi-turn interactions and implicit references without polluting the vector search query |
-| **Per-user access control** | Enforced at query time — a user can never receive information from projects they don't belong to, regardless of vector similarity |
-| **Persistent message state** | Full audit trail of every chat interaction, from enqueue to delivery |
+| **Conversational context** | Recent delivered messages are replayed into the agent loop, enabling multi-turn interactions and implicit references without polluting the vector search query |
+| **Per-actor access control** | Read tools scope results to the user; write tools re-check ownership/collaboration inside the queue, where HTTP guards don't run — a user can never read or mutate data from projects they don't belong to |
+| **Action audit trail** | Every tool the agent runs is persisted on the message as a structured `actions[]` record, alongside the full state history |
 | **Graceful failure** | Any exception marks the message as `FAILED` instead of crashing the consumer |
 
 #### Full pipeline diagram
@@ -197,48 +192,50 @@ POST /v1/chat
       └── Emit → chat_queue (RabbitMQ)
                       │
                       ▼
-              RagConsumer.handleProcessMessage()
+              AgentConsumer.handleProcessMessage()
                       │
                       ▼
-              Fetch last 5 delivered messages
-              Build conversation history block
-              (USER: ... / ASSISTANT: ...)
+              Load recent history → user/assistant turns
+              Persist PROCESSING (push to client)
                       │
                       ▼
-              1st AI call (GPT-4o mini)
-              "Parse this question into filters"
-              [receives: history + current message]
-                      │
-                      ▼
-              { status, priority, projectId, sourceTypes }
-              Persist filters (PROCESSING)
-                      │
-                      ▼
+         ┌──────────────────────────────────────────┐
+         │      Agentic loop (Claude, ≤10 turns)     │
+         │                                           │
+         │   model ──▶ end_turn ──────────────┐      │
+         │     │                              │      │
+         │     └─▶ tool_use                   │      │
+         │           │                        │      │
+         │           ▼                        │      │
+         │   ToolExecutor.execute(actorId)    │      │
+         │   • search_knowledge_base (RAG)    │      │
+         │   • find_project_by_name / find_task      │
+         │   • create_project / create_task   │      │
+         │   • add_comment / invite_collaborator     │
+         │           │                        │      │
+         │           ▼  tool_result           │      │
+         │        (loop back to model) ───────┘      │
+         └──────────────────┬───────────────────────┘
+                            │
+       search_knowledge_base│ runs the hybrid retrieval:
+                            ▼
          ┌────────────────────────────┐
          │   Relational Pre-filter    │
          │  Task / Comment / Project  │
-         │  WHERE status IN (...)     │
-         │  AND priority IN (...)     │
-         │  AND user has access       │
+         │  model-chosen filters +    │
+         │  per-actor access check    │
          └──────────────┬─────────────┘
                         │ filtered sourceIds
                         ▼
          ┌────────────────────────────┐
-         │     Vector Search          │
-         │  query = current message   │
-         │  (history excluded)        │
+         │     pgvector Search        │
          │  WHERE (sourceType,        │
          │    sourceId) IN (ids)      │
          │  ORDER BY similarity DESC  │
          └──────────────┬─────────────┘
-                        │ top-K chunks
+                        │ top-K chunks → tool_result
                         ▼
-              2nd AI call (GPT-4o mini)
-              "Answer based only on this context"
-              [receives: history + context + current message]
-                        │
-                        ▼
-              Persist response (DELIVERED)
+              Persist response + actions[] (DELIVERED)
                         │
                         ▼
               ChatGateway emits chat:status → room user:<id>   ← real-time push (Socket.IO)
@@ -311,7 +308,7 @@ Full Swagger/OpenAPI documentation auto-generated and served at `/api`.
 
 **Real-time:** WebSockets (`@nestjs/websockets` · `@nestjs/platform-socket.io` · Socket.IO) — ticket-authenticated chat delivery
 
-**AI:** OpenAI API (`text-embedding-3-small` · `gpt-4o-mini`)
+**AI:** Pluggable agent provider — **OpenAI `gpt-4o-mini`** (default) or **Anthropic Claude `claude-sonnet-4-6`**, selected via `AGENT_PROVIDER`, with optional per-action escalation · OpenAI (`text-embedding-3-small`) for embeddings
 
 **Infrastructure:** Oracle Cloud Infrastructure · PM2 · RabbitMQ
 
@@ -329,18 +326,18 @@ All three queues follow the same async pattern — the API emits an event and re
 
 ```
 email_queue      → MailConsumer      → Resend delivery
-embedding_queue  → EmbeddingConsumer → OpenAI embeddings → pgvector upsert
-chat_queue       → RagConsumer       → 2x OpenAI calls   → response persisted
+embedding_queue  → EmbeddingConsumer → OpenAI embeddings    → pgvector upsert
+chat_queue       → AgentConsumer     → Claude tool-use loop → response + actions persisted
 ```
 
 This keeps API latency low and makes each concern independently scalable and fault-isolated.
 
 ### Real-time Delivery (WebSocket)
 
-Chat answers are delivered to the client in real time over **Socket.IO**, with HTTP polling kept as a fallback. Because the `RagConsumer` and the `ChatGateway` live in the **same NestJS process**, status updates are pushed directly when they're persisted — no extra notification queue is needed:
+Chat answers are delivered to the client in real time over **Socket.IO**, with HTTP polling kept as a fallback. Because the `AgentConsumer` and the `ChatGateway` live in the **same NestJS process**, status updates are pushed directly when they're persisted — no extra notification queue is needed:
 
 ```
-ChatService.setProcessing / setDelivered / setFailed   (called by RagConsumer)
+ChatService.setProcessing / setDelivered / setFailed   (called by AgentConsumer)
         │  persist transition to DB
         ▼
 ChatGateway.emitStatus(userId, message)
@@ -379,15 +376,19 @@ src/
 │   ├── comments/
 │   ├── dashboard/
 │   ├── mail/
-│   ├── mcp/
 │   ├── embedding/
 │   │   ├── embedding.consumer.ts
 │   │   ├── embedding.service.ts
 │   │   └── embedding.module.ts
-│   ├── rag/
-│   │   ├── rag.consumer.ts
+│   ├── rag/                     # embedding dispatchers (consumed by domain services)
 │   │   ├── rag.service.ts
 │   │   └── rag.module.ts
+│   ├── agent/                   # agentic chat — Claude tool-use loop
+│   │   ├── agent.consumer.ts        # listens on chat_queue
+│   │   ├── agent.service.ts         # model → tool_use → tool_result loop
+│   │   ├── tool-executor.service.ts # maps tools → domain services (per-actor auth)
+│   │   ├── tool-definitions.ts      # the tool catalog (JSON Schema)
+│   │   └── agent.module.ts
 │   └── chat/
 │       ├── chat.controller.ts
 │       ├── chat.service.ts
@@ -406,7 +407,8 @@ src/
 - Node.js v18+
 - PostgreSQL with pgvector extension
 - RabbitMQ
-- OpenAI API key
+- OpenAI API key (embeddings)
+- Anthropic API key (chat agent)
 - Cloudinary account
 - PNPM
 
@@ -447,8 +449,22 @@ EMAIL_QUEUE=email_queue
 EMBEDDING_QUEUE=embedding_queue
 CHAT_QUEUE=chat_queue
 
-# OpenAI
+# OpenAI (embeddings — text-embedding-3-small)
 OPENAI_API_KEY=your_openai_api_key
+
+# Anthropic (chat agent — alternative provider / escalation target)
+ANTHROPIC_API_KEY=your_anthropic_api_key
+ANTHROPIC_MODEL=claude-sonnet-4-6
+
+# Agent routing
+AGENT_PROVIDER=openai            # openai (gpt-4o-mini, default) | anthropic (claude-sonnet-4-6)
+OPENAI_AGENT_MODEL=gpt-4o-mini
+AGENT_ESCALATE_INVITES=false     # route collaborator-invite messages to Anthropic Sonnet
+
+# Google OAuth (social login) — callback URL must match the Google Cloud Console config
+GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3030/v1/auth/google/callback
 
 # Cloudinary
 CLOUDINARY_CLOUD_NAME=your_cloud_name
@@ -536,13 +552,13 @@ pnpm prisma:generate  # regenerate Prisma client
 pnpm test:cov
 ```
 
-**271 tests across 40 suites — all passing.**
+**272 tests across 39 suites — all passing.**
 
 | Statements | Branches | Functions | Lines |
 |---|---|---|---|
-| 95.0% | 77.9% | 96.2% | 95.4% |
+| 92.9% | 75.8% | 93.3% | 93.8% |
 
-The full business logic (auth, tasks, projects, comments, collaborators, tags, dashboard, embedding, RAG, the chat WebSocket gateway, mail, guards) is covered with unit and integration tests. Controllers are tested end to end with `supertest` against the real Nest application.
+The full business logic (auth, tasks, projects, comments, collaborators, tags, dashboard, embedding, the chat agent loop + tool executor, the chat WebSocket gateway, mail, guards) is covered with unit and integration tests. Controllers are tested end to end with `supertest` against the real Nest application.
 
 ---
 
@@ -585,6 +601,8 @@ Full Swagger documentation at `/api` after starting the server.
 
 ## Roadmap
 
+- [x] Agentic chat: act on your data (create project/task/comment, invite collaborator) via a Claude tool-use loop
+- [ ] Confirmation step for destructive/irreversible chat actions (preview → confirm → execute)
 - [ ] Separate RabbitMQ consumer process (independent scaling)
 - [x] WebSocket delivery of chat status (primary path; HTTP polling kept as fallback)
 - [ ] Health checks with `@nestjs/terminus`

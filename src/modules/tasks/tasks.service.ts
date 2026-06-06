@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
+import { projectAccessWhere } from 'src/common/authorization/project-access'
 import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
-import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { TaskStatus } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { generateKeyBetween } from 'src/utils/fractional-indexing'
@@ -86,10 +86,29 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly ragService: RagService,
     private readonly tagsService: TagsService,
-    private readonly requestContext: RequestContextService,
   ) {}
 
-  async create({ data, projectId }: { data: TasksRequestDTO; projectId: string }) {
+  // Autoriza o ator (dono ou colaborador) a operar sobre o projeto. No HTTP o
+  // ValidateResourcesIdsInterceptor já fez esse check; chamado de novo aqui, o
+  // service fica seguro para ser invocado fora da request (consumer da fila).
+  private async assertProjectAccess(actorId: string, projectId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, ...projectAccessWhere(actorId) },
+      select: { id: true },
+    })
+    if (!project) throw new NotFoundException('Project not found')
+  }
+
+  async create({
+    actorId,
+    data,
+    projectId,
+  }: {
+    actorId: string
+    data: TasksRequestDTO
+    projectId: string
+  }) {
+    await this.assertProjectAccess(actorId, projectId)
     // Uma nova task sempre entra no topo da sua coluna: gera uma chave fracionária
     // anterior à do primeiro item da coluna. `position` do payload é ignorado aqui.
     const { position: _ignoredPosition, tags: tagNames, parentId, ...rest } = data
@@ -116,7 +135,7 @@ export class TasksService {
         parentId: parentId ?? null,
         dueDate: parseDueDate(data.dueDate),
         projectId,
-        ...(await this.buildTagsWrite(tagNames, { replace: false })),
+        ...(await this.buildTagsWrite(actorId, tagNames, { replace: false })),
       },
       include: taskInclude,
     })
@@ -209,11 +228,22 @@ export class TasksService {
     return subtasks.map(flattenTags)
   }
 
-  async update({ id, data, projectId }: { id: string; data: TasksRequestDTO; projectId: string }) {
+  async update({
+    actorId,
+    id,
+    data,
+    projectId,
+  }: {
+    actorId: string
+    id: string
+    data: TasksRequestDTO
+    projectId: string
+  }) {
+    await this.assertProjectAccess(actorId, projectId)
     // `parentId` é ignorado no update: reparentar não é suportado (o vínculo de
     // subtarefa é definido apenas na criação), o que mantém o invariante de 1 nível.
     const { position, tags: tagNames, parentId: _ignoredParentId, ...rest } = data
-    const tagsWrite = await this.buildTagsWrite(tagNames, { replace: true })
+    const tagsWrite = await this.buildTagsWrite(actorId, tagNames, { replace: true })
     const baseData = { ...rest, dueDate: parseDueDate(data.dueDate), ...tagsWrite }
 
     const current = await this.prisma.task.findFirst({
@@ -269,7 +299,8 @@ export class TasksService {
     return flattenTags(updated)
   }
 
-  async delete({ id, projectId }: { id: string; projectId: string }) {
+  async delete({ actorId, id, projectId }: { actorId: string; id: string; projectId: string }) {
+    await this.assertProjectAccess(actorId, projectId)
     // Busca a task no projeto + ids das subtarefas (para limpar embeddings, que
     // não são FK e portanto não são removidos pelo cascade do banco).
     const task = await this.prisma.task.findFirst({
@@ -300,11 +331,14 @@ export class TasksService {
   // - [nomes...] → define o conjunto pelas tags resolvidas (cria as novas).
   // `replace` adiciona `deleteMany` (substituição) — só vale no update; no
   // create não existem vínculos anteriores.
-  private async buildTagsWrite(tagNames: string[] | undefined, { replace }: { replace: boolean }) {
+  private async buildTagsWrite(
+    actorId: string,
+    tagNames: string[] | undefined,
+    { replace }: { replace: boolean },
+  ) {
     if (tagNames === undefined) return {}
 
-    const ownerId = this.requestContext.getUserId()
-    const tagIds = await this.tagsService.resolveNames(ownerId, tagNames)
+    const tagIds = await this.tagsService.resolveNames(actorId, tagNames)
 
     return {
       tags: {

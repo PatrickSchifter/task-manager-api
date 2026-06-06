@@ -10,6 +10,10 @@ describe('ProjectsController', () => {
   let controller: ProjectsController
   let service: ProjectsService
 
+  // O controller deriva o ator do JWT via @AuthenticatedUser; nos testes
+  // unitários passamos o user diretamente.
+  const mockUser = { id: 'user-1' } as any
+
   beforeEach(async () => {
     const serviceMock = {
       findAll: jest.fn(),
@@ -47,7 +51,7 @@ describe('ProjectsController', () => {
       })
 
       jest.spyOn(service, 'findAll').mockResolvedValue(mockedResponse)
-      const response = await controller.findAll(mockPaginationQuery)
+      const response = await controller.findAll(mockUser, mockPaginationQuery)
 
       expect(response).toEqual(mockedResponse)
       expect(service.findAll).toHaveBeenCalledTimes(1)
@@ -61,10 +65,10 @@ describe('ProjectsController', () => {
 
       jest.spyOn(service, 'findById').mockResolvedValue(project)
 
-      const response = await controller.findById(id)
+      const response = await controller.findById(mockUser, id)
 
       expect(response).toEqual(project)
-      expect(service.findById).toHaveBeenCalledWith(id)
+      expect(service.findById).toHaveBeenCalledWith(mockUser.id, id)
       expect(service.findById).toHaveBeenCalledTimes(1)
     })
   })
@@ -75,7 +79,7 @@ describe('ProjectsController', () => {
 
       jest.spyOn(service, 'create').mockResolvedValue(project)
 
-      const response = await controller.create(project)
+      const response = await controller.create(mockUser, project)
 
       expect(response).toEqual(project)
       expect(service.create).toHaveBeenCalledTimes(1)
@@ -86,7 +90,7 @@ describe('ProjectsController', () => {
 
       jest.spyOn(service, 'create').mockRejectedValue(error)
 
-      await expect(controller.create({ name: '', description: '' })).rejects.toThrow(
+      await expect(controller.create(mockUser, { name: '', description: '' })).rejects.toThrow(
         'Name is required',
       )
     })
@@ -98,7 +102,7 @@ describe('ProjectsController', () => {
 
       jest.spyOn(service, 'update').mockResolvedValue(project)
 
-      const response = await controller.update(project.id, {
+      const response = await controller.update(mockUser, project.id, {
         name: project.name,
         description: project.description as string,
       })
@@ -111,7 +115,7 @@ describe('ProjectsController', () => {
   describe('delete', () => {
     it('should be able to delete a project', async () => {
       jest.spyOn(service, 'delete').mockImplementation()
-      await controller.delete(mockedProjects[0].id)
+      await controller.delete(mockUser, mockedProjects[0].id)
 
       expect(service.delete).toHaveBeenCalledTimes(1)
     })

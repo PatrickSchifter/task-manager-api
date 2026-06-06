@@ -19,11 +19,13 @@ import {
   ApiNoContentResponse,
   ApiOkResponse,
 } from '@nestjs/swagger'
+import { AuthenticatedUser } from 'src/common/decorators/authenticated-user.decorator'
 import { ValidateResourcesIds } from 'src/common/decorators/validate-resources-ids.decorator'
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
 import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
 import { ApiPaginatedResponse } from 'src/common/swagger/api-paginated-response'
+import type { User } from 'src/generated/prisma/client'
 import { AddCommentDTO, CommentFullDTO, CommentItemListDTO, UpdateCommentDTO } from './comments.dto'
 import { CommentsService } from './comments.service'
 
@@ -41,8 +43,13 @@ export class CommentsController {
   @ApiCreatedResponse({ type: CommentItemListDTO })
   @HttpCode(HttpStatus.CREATED)
   @ValidateResourcesIds()
-  create(@Param('taskId', ParseUUIDPipe) taskId: string, @Body() data: AddCommentDTO) {
+  create(
+    @AuthenticatedUser() user: User,
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() data: AddCommentDTO,
+  ) {
     return this.commentService.create({
+      actorId: user.id,
       data,
       taskId,
     })
@@ -68,15 +75,19 @@ export class CommentsController {
   @Put(':commentId')
   @ValidateResourcesIds()
   @ApiOkResponse({ type: CommentItemListDTO })
-  update(@Param('commentId', ParseUUIDPipe) id: string, @Body() data: UpdateCommentDTO) {
-    return this.commentService.update({ data, id })
+  update(
+    @AuthenticatedUser() user: User,
+    @Param('commentId', ParseUUIDPipe) id: string,
+    @Body() data: UpdateCommentDTO,
+  ) {
+    return this.commentService.update({ actorId: user.id, data, id })
   }
 
   @Delete(':commentId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ValidateResourcesIds()
   @ApiNoContentResponse()
-  delete(@Param('commentId', ParseUUIDPipe) id: string) {
-    return this.commentService.delete(id)
+  delete(@AuthenticatedUser() user: User, @Param('commentId', ParseUUIDPipe) id: string) {
+    return this.commentService.delete({ actorId: user.id, id })
   }
 }

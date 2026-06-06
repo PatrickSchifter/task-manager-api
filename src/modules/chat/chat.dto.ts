@@ -17,6 +17,11 @@ export class ChatMessageResponseDTO {
   @ApiProperty({ nullable: true }) response: string | null
   @ApiProperty({ enum: MessageStatus }) status: MessageStatus
   @ApiProperty({ nullable: true }) filters: Record<string, unknown> | null
+  @ApiProperty({
+    nullable: true,
+    description: 'Structured list of agent actions executed while processing this message',
+  })
+  actions: Record<string, unknown>[] | null
   @ApiProperty({ format: 'date-time' }) createdAt: string
   @ApiProperty({ format: 'date-time' }) updatedAt: string
 }

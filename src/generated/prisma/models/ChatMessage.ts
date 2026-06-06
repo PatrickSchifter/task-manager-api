@@ -51,6 +51,7 @@ export type ChatMessageCountAggregateOutputType = {
   response: number
   status: number
   filters: number
+  actions: number
   createdAt: number
   updatedAt: number
   _all: number
@@ -84,6 +85,7 @@ export type ChatMessageCountAggregateInputType = {
   response?: true
   status?: true
   filters?: true
+  actions?: true
   createdAt?: true
   updatedAt?: true
   _all?: true
@@ -168,6 +170,7 @@ export type ChatMessageGroupByOutputType = {
   response: string | null
   status: $Enums.MessageStatus
   filters: runtime.JsonValue | null
+  actions: runtime.JsonValue | null
   createdAt: Date
   updatedAt: Date
   _count: ChatMessageCountAggregateOutputType | null
@@ -200,6 +203,7 @@ export type ChatMessageWhereInput = {
   response?: Prisma.StringNullableFilter<"ChatMessage"> | string | null
   status?: Prisma.EnumMessageStatusFilter<"ChatMessage"> | $Enums.MessageStatus
   filters?: Prisma.JsonNullableFilter<"ChatMessage">
+  actions?: Prisma.JsonNullableFilter<"ChatMessage">
   createdAt?: Prisma.DateTimeFilter<"ChatMessage"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ChatMessage"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -212,6 +216,7 @@ export type ChatMessageOrderByWithRelationInput = {
   response?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   filters?: Prisma.SortOrderInput | Prisma.SortOrder
+  actions?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   user?: Prisma.UserOrderByWithRelationInput
@@ -227,6 +232,7 @@ export type ChatMessageWhereUniqueInput = Prisma.AtLeast<{
   response?: Prisma.StringNullableFilter<"ChatMessage"> | string | null
   status?: Prisma.EnumMessageStatusFilter<"ChatMessage"> | $Enums.MessageStatus
   filters?: Prisma.JsonNullableFilter<"ChatMessage">
+  actions?: Prisma.JsonNullableFilter<"ChatMessage">
   createdAt?: Prisma.DateTimeFilter<"ChatMessage"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ChatMessage"> | Date | string
   user?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
@@ -239,6 +245,7 @@ export type ChatMessageOrderByWithAggregationInput = {
   response?: Prisma.SortOrderInput | Prisma.SortOrder
   status?: Prisma.SortOrder
   filters?: Prisma.SortOrderInput | Prisma.SortOrder
+  actions?: Prisma.SortOrderInput | Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   _count?: Prisma.ChatMessageCountOrderByAggregateInput
@@ -256,6 +263,7 @@ export type ChatMessageScalarWhereWithAggregatesInput = {
   response?: Prisma.StringNullableWithAggregatesFilter<"ChatMessage"> | string | null
   status?: Prisma.EnumMessageStatusWithAggregatesFilter<"ChatMessage"> | $Enums.MessageStatus
   filters?: Prisma.JsonNullableWithAggregatesFilter<"ChatMessage">
+  actions?: Prisma.JsonNullableWithAggregatesFilter<"ChatMessage">
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"ChatMessage"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"ChatMessage"> | Date | string
 }
@@ -266,6 +274,7 @@ export type ChatMessageCreateInput = {
   response?: string | null
   status?: $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
   user: Prisma.UserCreateNestedOneWithoutChatMessagesInput
@@ -278,6 +287,7 @@ export type ChatMessageUncheckedCreateInput = {
   response?: string | null
   status?: $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -288,6 +298,7 @@ export type ChatMessageUpdateInput = {
   response?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMessageStatusFieldUpdateOperationsInput | $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   user?: Prisma.UserUpdateOneRequiredWithoutChatMessagesNestedInput
@@ -300,6 +311,7 @@ export type ChatMessageUncheckedUpdateInput = {
   response?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMessageStatusFieldUpdateOperationsInput | $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -311,6 +323,7 @@ export type ChatMessageCreateManyInput = {
   response?: string | null
   status?: $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -321,6 +334,7 @@ export type ChatMessageUpdateManyMutationInput = {
   response?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMessageStatusFieldUpdateOperationsInput | $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -332,6 +346,7 @@ export type ChatMessageUncheckedUpdateManyInput = {
   response?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMessageStatusFieldUpdateOperationsInput | $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -353,6 +368,7 @@ export type ChatMessageCountOrderByAggregateInput = {
   response?: Prisma.SortOrder
   status?: Prisma.SortOrder
   filters?: Prisma.SortOrder
+  actions?: Prisma.SortOrder
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
 }
@@ -429,6 +445,7 @@ export type ChatMessageCreateWithoutUserInput = {
   response?: string | null
   status?: $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -439,6 +456,7 @@ export type ChatMessageUncheckedCreateWithoutUserInput = {
   response?: string | null
   status?: $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -479,6 +497,7 @@ export type ChatMessageScalarWhereInput = {
   response?: Prisma.StringNullableFilter<"ChatMessage"> | string | null
   status?: Prisma.EnumMessageStatusFilter<"ChatMessage"> | $Enums.MessageStatus
   filters?: Prisma.JsonNullableFilter<"ChatMessage">
+  actions?: Prisma.JsonNullableFilter<"ChatMessage">
   createdAt?: Prisma.DateTimeFilter<"ChatMessage"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"ChatMessage"> | Date | string
 }
@@ -489,6 +508,7 @@ export type ChatMessageCreateManyUserInput = {
   response?: string | null
   status?: $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Date | string
   updatedAt?: Date | string
 }
@@ -499,6 +519,7 @@ export type ChatMessageUpdateWithoutUserInput = {
   response?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMessageStatusFieldUpdateOperationsInput | $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -509,6 +530,7 @@ export type ChatMessageUncheckedUpdateWithoutUserInput = {
   response?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMessageStatusFieldUpdateOperationsInput | $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -519,6 +541,7 @@ export type ChatMessageUncheckedUpdateManyWithoutUserInput = {
   response?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   status?: Prisma.EnumMessageStatusFieldUpdateOperationsInput | $Enums.MessageStatus
   filters?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  actions?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
@@ -532,6 +555,7 @@ export type ChatMessageSelect<ExtArgs extends runtime.Types.Extensions.InternalA
   response?: boolean
   status?: boolean
   filters?: boolean
+  actions?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -544,6 +568,7 @@ export type ChatMessageSelectCreateManyAndReturn<ExtArgs extends runtime.Types.E
   response?: boolean
   status?: boolean
   filters?: boolean
+  actions?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -556,6 +581,7 @@ export type ChatMessageSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.E
   response?: boolean
   status?: boolean
   filters?: boolean
+  actions?: boolean
   createdAt?: boolean
   updatedAt?: boolean
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
@@ -568,11 +594,12 @@ export type ChatMessageSelectScalar = {
   response?: boolean
   status?: boolean
   filters?: boolean
+  actions?: boolean
   createdAt?: boolean
   updatedAt?: boolean
 }
 
-export type ChatMessageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "content" | "response" | "status" | "filters" | "createdAt" | "updatedAt", ExtArgs["result"]["chatMessage"]>
+export type ChatMessageOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "userId" | "content" | "response" | "status" | "filters" | "actions" | "createdAt" | "updatedAt", ExtArgs["result"]["chatMessage"]>
 export type ChatMessageInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   user?: boolean | Prisma.UserDefaultArgs<ExtArgs>
 }
@@ -595,6 +622,7 @@ export type $ChatMessagePayload<ExtArgs extends runtime.Types.Extensions.Interna
     response: string | null
     status: $Enums.MessageStatus
     filters: runtime.JsonValue | null
+    actions: runtime.JsonValue | null
     createdAt: Date
     updatedAt: Date
   }, ExtArgs["result"]["chatMessage"]>
@@ -1027,6 +1055,7 @@ export interface ChatMessageFieldRefs {
   readonly response: Prisma.FieldRef<"ChatMessage", 'String'>
   readonly status: Prisma.FieldRef<"ChatMessage", 'MessageStatus'>
   readonly filters: Prisma.FieldRef<"ChatMessage", 'Json'>
+  readonly actions: Prisma.FieldRef<"ChatMessage", 'Json'>
   readonly createdAt: Prisma.FieldRef<"ChatMessage", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"ChatMessage", 'DateTime'>
 }

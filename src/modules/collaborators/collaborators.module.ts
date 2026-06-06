@@ -6,5 +6,6 @@ import { CollaboratorsService } from './collaborators.service'
 @Module({
   controllers: [CollaboratorsController],
   providers: [CollaboratorsService, RequestContextService],
+  exports: [CollaboratorsService],
 })
 export class CollaboratorsModule {}

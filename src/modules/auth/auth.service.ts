@@ -31,11 +31,9 @@ export class AuthService {
 
     const newUser = await this.usersService.create({ ...data, password: hash })
 
-    return {
-      token: this.jwtService.sign({
-        sub: { id: newUser.id },
-      }),
-    }
+    // `sub` must be the user id string — JwtStrategy does `where: { id: payload.sub }`.
+    // Reuse signToken so signup and signin issue identical, valid tokens.
+    return this.signToken(newUser.id)
   }
 
   async signin({ email, password }: SignInDTO) {

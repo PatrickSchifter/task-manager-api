@@ -10,5 +10,6 @@ import { TasksService } from './tasks.service'
   controllers: [TasksController],
   providers: [TasksService, RequestContextService],
   imports: [EmbeddingModule, RagModule, TagsModule],
+  exports: [TasksService],
 })
 export class TasksModule {}

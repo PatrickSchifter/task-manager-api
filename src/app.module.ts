@@ -8,13 +8,13 @@ import { CustomThrottlerGuard } from './common/guards/throttler/throttler.guard'
 import { CloudnaryService } from './common/services/cloudnary/cloudnary.service'
 import { RequestContextService } from './common/services/request-context/request-context.service'
 import appConfig from './config/app.config'
+import { AgentModule } from './modules/agent/agent.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { ChatModule } from './modules/chat/chat.module'
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module'
 import { CommentsModule } from './modules/comments/comments.module'
 import { DashboardModule } from './modules/dashboard/dashboard.module'
 import { MailModule } from './modules/mail/mail.module'
-import { McpModule } from './modules/mcp/mcp.module'
 import { ProjectsModule } from './modules/projects/projects.module'
 import { RagModule } from './modules/rag/rag.module'
 import { TagsModule } from './modules/tags/tags.module'
@@ -37,7 +37,7 @@ import { PrismaModule } from './prisma/prisma.module'
     CommentsModule,
     AuthModule,
     MailModule,
-    McpModule,
+    AgentModule,
     RagModule,
     ChatModule,
     DashboardModule,
