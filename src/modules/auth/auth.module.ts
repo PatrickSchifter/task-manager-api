@@ -7,10 +7,11 @@ import { MailModule } from '../mail/mail.module'
 import { UsersService } from '../users/users.service'
 import { AuthController } from './auth.controller'
 import { AuthService } from './auth.service'
+import { GoogleStrategy } from './google.strategy'
 import { JwtStrategy } from './jwt.strategy'
 
 @Module({
-  providers: [AuthService, UsersService, JwtStrategy, RequestContextService],
+  providers: [AuthService, UsersService, JwtStrategy, GoogleStrategy, RequestContextService],
   controllers: [AuthController],
   imports: [
     PassportModule,

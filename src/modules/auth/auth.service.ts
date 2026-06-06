@@ -41,13 +41,51 @@ export class AuthService {
   async signin({ email, password }: SignInDTO) {
     const user = await this.usersService.findByEmail(email)
 
-    if (user && (await bcrypt.compare(password, user.password)))
-      return {
-        token: this.jwtService.sign({
-          sub: user.id,
-        }),
-      }
+    // `user.password` pode ser null para contas criadas só via Google —
+    // nesse caso o login por senha falha sem quebrar o bcrypt.compare.
+    if (user?.password && (await bcrypt.compare(password, user.password)))
+      return this.signToken(user.id)
+
     throw new UnauthorizedException()
+  }
+
+  signToken(userId: string) {
+    return {
+      token: this.jwtService.sign({ sub: userId }),
+    }
+  }
+
+  /**
+   * Resolve (ou cria) o usuário a partir do perfil do Google.
+   * - Acha por googleId → login direto.
+   * - Acha pelo e-mail (conta criada por senha) → vincula o googleId.
+   * - Não existe → cria conta sem senha.
+   */
+  async validateGoogleUser({
+    googleId,
+    email,
+    name,
+    avatar,
+  }: {
+    googleId: string
+    email?: string
+    name: string
+    avatar?: string
+  }) {
+    if (!email) throw new UnauthorizedException('Conta Google sem e-mail')
+
+    const byGoogle = await this.prisma.user.findUnique({ where: { googleId } })
+    if (byGoogle) return byGoogle
+
+    const byEmail = await this.usersService.findByEmail(email)
+    if (byEmail) {
+      return this.prisma.user.update({
+        where: { id: byEmail.id },
+        data: { googleId, avatar: byEmail.avatar ?? avatar },
+      })
+    }
+
+    return this.usersService.create({ name, email, googleId, avatar })
   }
 
   async forgotPassword(email: string) {
@@ -89,7 +127,8 @@ export class AuthService {
   }
 
   async findMe(): Promise<Omit<User, 'password'>> {
-    const { avatar, createdAt, email, id, name, role, updatedAt } = this.requestContext.getUser()
-    return { avatar, createdAt, email, id, name, role, updatedAt }
+    const { avatar, createdAt, email, googleId, id, name, role, updatedAt } =
+      this.requestContext.getUser()
+    return { avatar, createdAt, email, googleId, id, name, role, updatedAt }
   }
 }
