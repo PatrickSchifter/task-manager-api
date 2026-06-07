@@ -9,8 +9,12 @@ export const DOCUMENT_MIME_TYPES = [
   'text/markdown',
 ] as const
 
-// v1: only text documents accepted for attachment upload
-export const ALLOWED_MIME_TYPES: readonly string[] = [...DOCUMENT_MIME_TYPES]
+// Both images (routed to Cloudinary, captioned via a vision model) and text
+// documents (routed to Supabase, text-extracted) are accepted.
+export const ALLOWED_MIME_TYPES: readonly string[] = [
+  ...IMAGE_MIME_TYPES,
+  ...DOCUMENT_MIME_TYPES,
+]
 
 export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
 export const MAX_DOCUMENT_SIZE_BYTES = 20 * 1024 * 1024

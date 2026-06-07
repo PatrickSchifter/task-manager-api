@@ -9,9 +9,11 @@ ALTER TABLE "Embedding" DROP CONSTRAINT IF EXISTS "Embedding_sourceType_sourceId
 CREATE UNIQUE INDEX IF NOT EXISTS "Embedding_sourceType_sourceId_chunkIndex_key"
   ON "Embedding" ("sourceType", "sourceId", "chunkIndex");
 
--- HNSW index for fast approximate nearest-neighbour search (cosine distance)
--- Greatly improves search latency as the Embedding table grows with chunks.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "Embedding_vector_hnsw_idx"
+-- HNSW index for fast approximate nearest-neighbour search (cosine distance).
+-- NOT created CONCURRENTLY: Prisma Migrate runs each migration file inside a
+-- transaction, and CREATE INDEX CONCURRENTLY cannot run in a transaction block.
+-- A plain CREATE INDEX is fine here — the table is empty/new at this point.
+CREATE INDEX IF NOT EXISTS "Embedding_vector_hnsw_idx"
   ON "Embedding" USING hnsw (vector vector_cosine_ops);
 
 -- New enums
