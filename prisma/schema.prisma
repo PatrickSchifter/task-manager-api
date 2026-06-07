@@ -31,7 +31,8 @@ model User {
   comments        Comment[]
   collaborations  ProjectCollaborator[]
   chatMessages    ChatMessage[]
-  tags            Tag[]     @relation("UserTags")
+  tags            Tag[]        @relation("UserTags")
+  attachments     Attachment[] @relation("UploadedAttachments")
 }
 
 enum CollaboratorRole {
@@ -63,8 +64,9 @@ model Comment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author    User @relation(fields: [authorId], references: [id])
-  task      Task @relation(fields: [taskId], references: [id])
+  author      User         @relation(fields: [authorId], references: [id])
+  task        Task         @relation(fields: [taskId], references: [id])
+  attachments Attachment[]
 }
 
 model Project {
@@ -125,6 +127,7 @@ model Task {
   subtasks      Task[] @relation("Subtasks")
   comments      Comment[]
   tags          TaskTag[]
+  attachments   Attachment[]
 
   // Ordenação fracionária é escopada por (projectId, status, parentId): cada
   // "coluna" de subtarefas de um pai tem seu próprio espaço de `order`. O índice
@@ -173,6 +176,7 @@ enum EmbeddingSourceType {
   TASK
   COMMENT
   PROJECT
+  ATTACHMENT
 }
 
 model Embedding {
@@ -182,10 +186,46 @@ model Embedding {
   content    String
   vector     Unsupported("vector(1536)")?
   metadata   Json                @default("{}")
+  chunkIndex Int                 @default(0)
   createdAt  DateTime            @default(now())
 
   @@index([sourceType, sourceId])
-  @@unique([sourceType, sourceId])
+  @@unique([sourceType, sourceId, chunkIndex])
+}
+
+enum StorageProvider {
+  CLOUDINARY
+  SUPABASE
+}
+
+enum AttachmentStatus {
+  PENDING
+  PROCESSING
+  EMBEDDED
+  FAILED
+}
+
+model Attachment {
+  id           String           @id @default(uuid())
+  fileName     String
+  mimeType     String
+  size         Int
+  provider     StorageProvider
+  storageKey   String
+  url          String?
+  status       AttachmentStatus @default(PENDING)
+  taskId       String
+  commentId    String?
+  uploadedById String
+
+  createdAt    DateTime         @default(now())
+
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  comment      Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  uploadedBy   User     @relation("UploadedAttachments", fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@index([commentId])
 }
 
 enum MessageStatus {

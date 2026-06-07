@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { QueryPaginationDTO } from 'src/common/dtos/query.pagination.dto'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { generateKeyBetween } from 'src/utils/fractional-indexing'
+import { AttachmentsService } from '../attachments/attachments.service'
 import { RagService } from '../rag/rag.service'
 import { TagsService } from '../tags/tags.service'
 import { TasksRequestDTO } from './tasks.dto'
@@ -87,6 +88,7 @@ describe('TasksService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: RagService, useValue: ragMock },
         { provide: TagsService, useValue: { resolveNames: jest.fn().mockResolvedValue([]) } },
+        { provide: AttachmentsService, useValue: { cleanupForTasks: jest.fn() } },
       ],
     }).compile()
 
@@ -207,9 +209,9 @@ describe('TasksService', () => {
 
       const dto: TasksRequestDTO = { title: 'Deep', assigneeId: 'user1', parentId: 'task1' }
 
-      await expect(service.create({ actorId: 'user1', data: dto, projectId: 'project1' })).rejects.toThrow(
-        BadRequestException,
-      )
+      await expect(
+        service.create({ actorId: 'user1', data: dto, projectId: 'project1' }),
+      ).rejects.toThrow(BadRequestException)
       expect(prismaService.task.create).not.toHaveBeenCalled()
     })
 
@@ -218,9 +220,9 @@ describe('TasksService', () => {
 
       const dto: TasksRequestDTO = { title: 'Orphan', assigneeId: 'user1', parentId: 'missing' }
 
-      await expect(service.create({ actorId: 'user1', data: dto, projectId: 'project1' })).rejects.toThrow(
-        NotFoundException,
-      )
+      await expect(
+        service.create({ actorId: 'user1', data: dto, projectId: 'project1' }),
+      ).rejects.toThrow(NotFoundException)
       expect(prismaService.task.create).not.toHaveBeenCalled()
     })
   })
@@ -342,7 +344,11 @@ describe('TasksService', () => {
     it('ignores parentId in the payload (no reparenting)', async () => {
       prismaMock.task.findFirst.mockResolvedValue({ status: 'TODO', parentId: null })
 
-      const dto: TasksRequestDTO = { title: 'NoReparent', parentId: 'other', assigneeId: 'user1' } as any
+      const dto: TasksRequestDTO = {
+        title: 'NoReparent',
+        parentId: 'other',
+        assigneeId: 'user1',
+      } as any
 
       await service.update({ id: 'task1', actorId: 'user1', data: dto, projectId: 'project1' })
 
@@ -389,9 +395,9 @@ describe('TasksService', () => {
     it('throws when the task is not found in the project', async () => {
       prismaMock.task.findFirst.mockResolvedValue(null)
 
-      await expect(service.delete({ actorId: 'user1', id: 'nope', projectId: 'project1' })).rejects.toThrow(
-        NotFoundException,
-      )
+      await expect(
+        service.delete({ actorId: 'user1', id: 'nope', projectId: 'project1' }),
+      ).rejects.toThrow(NotFoundException)
       expect(prismaService.task.delete).not.toHaveBeenCalled()
     })
   })

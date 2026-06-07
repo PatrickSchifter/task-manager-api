@@ -9,6 +9,7 @@ import { CloudnaryService } from './common/services/cloudnary/cloudnary.service'
 import { RequestContextService } from './common/services/request-context/request-context.service'
 import appConfig from './config/app.config'
 import { AgentModule } from './modules/agent/agent.module'
+import { AttachmentsModule } from './modules/attachments/attachments.module'
 import { AuthModule } from './modules/auth/auth.module'
 import { ChatModule } from './modules/chat/chat.module'
 import { CollaboratorsModule } from './modules/collaborators/collaborators.module'
@@ -36,6 +37,7 @@ import { PrismaModule } from './prisma/prisma.module'
     UsersModule,
     CollaboratorsModule,
     CommentsModule,
+    AttachmentsModule,
     AuthModule,
     MailModule,
     AgentModule,

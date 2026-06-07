@@ -94,15 +94,14 @@ describe('TagsService', () => {
 
   describe('resolveNames', () => {
     it('dedupes names case-insensitively and returns one id per unique tag', async () => {
-      jest
-        .spyOn(prisma.tag, 'upsert')
-        .mockImplementation((args: any) =>
+      jest.spyOn(prisma.tag, 'upsert').mockImplementation(
+        (args: any) =>
           Promise.resolve({
             id: `id-${args.create.name.toLowerCase()}`,
             name: args.create.name,
             color: args.create.color,
           }) as never,
-        )
+      )
 
       const ids = await service.resolveNames(ownerId, ['Backend', 'backend', ' BACKEND ', 'design'])
 

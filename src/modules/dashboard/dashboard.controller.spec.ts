@@ -1,10 +1,10 @@
 import { INestApplication, VersioningType } from '@nestjs/common'
 import { Reflector } from '@nestjs/core'
 import { Test, TestingModule } from '@nestjs/testing'
-import request from 'supertest'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
 import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
 import { PrismaService } from 'src/prisma/prisma.service'
+import request from 'supertest'
 import { DashboardController } from './dashboard.controller'
 import { DashboardService } from './dashboard.service'
 

@@ -2,10 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing'
 import { Project } from 'src/generated/prisma/client'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginateOutput } from 'src/utils/pagination.utils'
+import { AttachmentsService } from '../attachments/attachments.service'
+import { RagService } from '../rag/rag.service'
 import { ProjectDTO } from './projects.dto'
 import { mockedProjects, mockPaginationQuery } from './projects.mocks'
 import { ProjectsService } from './projects.service'
-import { RagService } from '../rag/rag.service'
 
 describe('ProjectsService', () => {
   let service: ProjectsService
@@ -30,6 +31,9 @@ describe('ProjectsService', () => {
               create: jest.fn(),
               deleteMany: jest.fn(),
             },
+            projectStatus: {
+              createMany: jest.fn(),
+            },
             comment: {
               deleteMany: jest.fn(),
             },
@@ -44,6 +48,10 @@ describe('ProjectsService', () => {
             dispatchProjectEmbedding: jest.fn(),
             dispatchProjectDelete: jest.fn(),
           },
+        },
+        {
+          provide: AttachmentsService,
+          useValue: { cleanupForTasks: jest.fn(), cleanupForProject: jest.fn() },
         },
       ],
     }).compile()

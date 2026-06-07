@@ -35,6 +35,10 @@ describe('app.config', () => {
         url_base: undefined,
         web_app_url_base: undefined,
       },
+      caption: {
+        provider: 'openai',
+        openaiVisionModel: 'gpt-4o-mini',
+      },
       rmq: {
         url: undefined,
       },
@@ -82,6 +86,10 @@ describe('app.config', () => {
         env: 'production',
         url_base: 'https://api.example.com',
         web_app_url_base: 'https://app.example.com',
+      },
+      caption: {
+        provider: 'openai',
+        openaiVisionModel: 'gpt-4o-mini',
       },
       rmq: {
         url: 'amqp://localhost:5672',

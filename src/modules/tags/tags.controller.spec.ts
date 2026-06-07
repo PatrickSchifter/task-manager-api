@@ -1,7 +1,7 @@
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
-import request from 'supertest'
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
+import request from 'supertest'
 import { TagsController } from './tags.controller'
 import { TagsService } from './tags.service'
 

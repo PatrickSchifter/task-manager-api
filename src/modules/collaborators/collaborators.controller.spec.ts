@@ -1,12 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing'
 import { INestApplication } from '@nestjs/common'
+import { Reflector } from '@nestjs/core'
+import { Test, TestingModule } from '@nestjs/testing'
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
+import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
+import { PrismaService } from 'src/prisma/prisma.service'
 import request from 'supertest'
 import { CollaboratorsController } from './collaborators.controller'
 import { CollaboratorsService } from './collaborators.service'
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
-import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
-import { Reflector } from '@nestjs/core'
-import { PrismaService } from 'src/prisma/prisma.service'
 
 describe('CollaboratorsController (integration)', () => {
   let app: INestApplication
@@ -25,7 +25,14 @@ describe('CollaboratorsController (integration)', () => {
     const serviceMock = {
       findAllByProject: jest.fn().mockResolvedValue({
         data: [mockCollaborator],
-        meta: { total: 1, currentPage: 1, lastPage: 1, nextPage: null, prevPage: null, totalPerPage: 10 },
+        meta: {
+          total: 1,
+          currentPage: 1,
+          lastPage: 1,
+          nextPage: null,
+          prevPage: null,
+          totalPerPage: 10,
+        },
       }),
       create: jest.fn().mockResolvedValue(mockCollaborator),
       update: jest.fn().mockResolvedValue(mockCollaborator),
@@ -40,7 +47,11 @@ describe('CollaboratorsController (integration)', () => {
         {
           provide: PrismaService,
           useValue: {
-            project: { findFirst: jest.fn().mockResolvedValue({ id: '00000000-0000-0000-0000-000000000001' }) },
+            project: {
+              findFirst: jest
+                .fn()
+                .mockResolvedValue({ id: '00000000-0000-0000-0000-000000000001' }),
+            },
             task: { findFirst: jest.fn() },
             user: { findFirst: jest.fn() },
           },
@@ -50,7 +61,7 @@ describe('CollaboratorsController (integration)', () => {
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: jest.fn().mockResolvedValue(true) })
       .overrideInterceptor(ValidateResourcesIdsInterceptor)
-      .useValue({ intercept: jest.fn((ctx, next) => next.handle()) })
+      .useValue({ intercept: jest.fn((_ctx, next) => next.handle()) })
       .compile()
 
     app = module.createNestApplication()
@@ -81,7 +92,7 @@ describe('CollaboratorsController (integration)', () => {
 
   describe('POST /projects/:projectId/collaborators', () => {
     it('should create a collaborator', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .post(`/projects/${validProjectId}/collaborators`)
         .send({ userId: validUserId, role: 'VIEWER' })
         .expect(201)
@@ -95,7 +106,7 @@ describe('CollaboratorsController (integration)', () => {
 
   describe('PUT /projects/:projectId/collaborators/:userId', () => {
     it('should update a collaborator', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .put(`/projects/${validProjectId}/collaborators/${validUserId}`)
         .send({ role: 'VIEWER' })
         .expect(200)

@@ -13,8 +13,8 @@ jest.mock('../generated/prisma/client', () => ({
   }),
 }))
 
-import { PrismaService } from './prisma.service'
 import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaService } from './prisma.service'
 
 describe('PrismaService', () => {
   let service: PrismaService
@@ -33,7 +33,9 @@ describe('PrismaService', () => {
   })
 
   it('should construct PrismaPg with connection string', () => {
-    expect(PrismaPg).toHaveBeenCalledWith({ connectionString: 'postgresql://test:test@localhost:5432/test' })
+    expect(PrismaPg).toHaveBeenCalledWith({
+      connectionString: 'postgresql://test:test@localhost:5432/test',
+    })
   })
 
   describe('onModuleInit', () => {

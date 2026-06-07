@@ -29,8 +29,9 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         },
         sourceTypes: {
           type: 'array',
-          items: { type: 'string', enum: ['TASK', 'COMMENT', 'PROJECT'] },
-          description: 'Optional: filter results by source type',
+          items: { type: 'string', enum: ['TASK', 'COMMENT', 'PROJECT', 'ATTACHMENT'] },
+          description:
+            'Optional: filter results by source type (ATTACHMENT = file attachments on comments)',
         },
       },
       required: ['query'],

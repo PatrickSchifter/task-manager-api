@@ -3,10 +3,12 @@
 import { Inject, Injectable, Logger } from '@nestjs/common'
 import { ClientProxy } from '@nestjs/microservices'
 import {
+  DELETE_ATTACHMENT_EMBEDDING,
   DELETE_EMBEDDING,
   DELETE_EMBEDDING_BY_PROJECT,
   DELETE_TASK_EMBEDDING,
   EMBEDDING_SERVICE,
+  GENERATE_ATTACHMENT_EMBEDDING,
   GENERATE_COMMENT_EMBEDDING,
   GENERATE_PROJECT_EMBEDDING,
   GENERATE_TASK_EMBEDDING,
@@ -40,6 +42,14 @@ export class RagService {
 
   dispatchTaskDelete(taskId: string) {
     this.dispatch(DELETE_TASK_EMBEDDING, { taskId })
+  }
+
+  dispatchAttachmentEmbedding(attachmentId: string) {
+    this.dispatch(GENERATE_ATTACHMENT_EMBEDDING, { attachmentId })
+  }
+
+  dispatchAttachmentDelete(attachmentId: string) {
+    this.dispatch(DELETE_ATTACHMENT_EMBEDDING, { attachmentId })
   }
 
   private dispatch(event: string, payload: object) {

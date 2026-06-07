@@ -1,8 +1,4 @@
-import {
-  BASE_62_DIGITS,
-  generateKeyBetween,
-  generateNKeysBetween,
-} from './fractional-indexing'
+import { BASE_62_DIGITS, generateKeyBetween, generateNKeysBetween } from './fractional-indexing'
 
 describe('fractional-indexing', () => {
   describe('generateKeyBetween', () => {

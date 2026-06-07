@@ -16,7 +16,7 @@ interface SearchKnowledgeBaseInput {
   status?: string[]
   priority?: string[]
   projectId?: string
-  sourceTypes?: ('TASK' | 'COMMENT' | 'PROJECT')[]
+  sourceTypes?: ('TASK' | 'COMMENT' | 'PROJECT' | 'ATTACHMENT')[]
 }
 
 interface FindProjectByNameInput {

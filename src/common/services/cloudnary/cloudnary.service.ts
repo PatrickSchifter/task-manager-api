@@ -1,16 +1,20 @@
+import { Readable } from 'node:stream'
 import { Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { v2 as cloudnary } from 'cloudinary'
-import { Readable } from 'stream'
 
 @Injectable()
 export class CloudnaryService {
-  constructor(private readonly configService: ConfigService) {
+  constructor(readonly configService: ConfigService) {
     cloudnary.config({
       cloud_name: configService.getOrThrow<string>('CLOUDNARY_CLOUD_NAME'),
       api_key: configService.getOrThrow<string>('CLOUDNARY_API_KEY'),
       api_secret: configService.getOrThrow<string>('CLOUDNARY_API_SECRET'),
     })
+  }
+
+  async delete(publicId: string): Promise<void> {
+    await cloudnary.uploader.destroy(publicId)
   }
 
   async upload({

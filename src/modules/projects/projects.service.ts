@@ -5,6 +5,7 @@ import { Project } from 'src/generated/prisma/client'
 import { CollaboratorRole } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
+import { AttachmentsService } from '../attachments/attachments.service'
 import { RagService } from '../rag/rag.service'
 import { CreateProjectStatusInputDTO, ProjectDTO } from './projects.dto'
 
@@ -18,6 +19,7 @@ export class ProjectsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ragService: RagService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   // `actorId` é o usuário em nome de quem a operação roda. No caminho HTTP vem do
@@ -157,12 +159,17 @@ export class ProjectsService {
       }
     }
     if (toDelete.length) {
-      await this.prisma.projectStatus.deleteMany({ where: { id: { in: toDelete.map((s) => s.id) } } })
+      await this.prisma.projectStatus.deleteMany({
+        where: { id: { in: toDelete.map((s) => s.id) } },
+      })
     }
     for (let i = 0; i < desired.length; i++) {
       const s = desired[i]
       if (s.id && existingMap.has(s.id)) {
-        await this.prisma.projectStatus.update({ where: { id: s.id }, data: { name: s.name, order: i + 1 } })
+        await this.prisma.projectStatus.update({
+          where: { id: s.id },
+          data: { name: s.name, order: i + 1 },
+        })
       } else {
         await this.prisma.projectStatus.create({
           data: { name: s.name, value: s.value, order: i + 1, projectId },
@@ -187,7 +194,12 @@ export class ProjectsService {
     })
 
     const statusRows = statusesInput?.length
-      ? statusesInput.map((s, i) => ({ name: s.name, value: s.value, order: i + 1, projectId: project.id }))
+      ? statusesInput.map((s, i) => ({
+          name: s.name,
+          value: s.value,
+          order: i + 1,
+          projectId: project.id,
+        }))
       : this.DEFAULT_STATUSES.map((s) => ({ ...s, projectId: project.id }))
 
     await this.prisma.projectStatus.createMany({ data: statusRows })
@@ -201,7 +213,10 @@ export class ProjectsService {
 
   async update(actorId: string, id: string, data: ProjectDTO) {
     const { statuses: statusesInput, ...projectData } = data
-    const updated = await this.prisma.project.update({ where: { id, createdById: actorId }, data: projectData })
+    const updated = await this.prisma.project.update({
+      where: { id, createdById: actorId },
+      data: projectData,
+    })
     if (statusesInput !== undefined) await this.reconcileStatuses(id, statusesInput)
     if (data.description) this.ragService.dispatchProjectEmbedding(id)
     return updated
@@ -211,6 +226,9 @@ export class ProjectsService {
     const project = await this.prisma.project.findFirst({ where: { id } })
 
     if (project?.createdById === actorId) {
+      // Clean up attachment files before cascading deletes remove DB records
+      await this.attachmentsService.cleanupForProject(id)
+
       await this.prisma.projectCollaborator.deleteMany({ where: { projectId: id } })
       await this.prisma.comment.deleteMany({ where: { task: { projectId: id } } })
       await this.prisma.task.deleteMany({ where: { projectId: id } })

@@ -1,10 +1,10 @@
+import { BadRequestException, NotFoundException } from '@nestjs/common'
 import { Test, TestingModule } from '@nestjs/testing'
-import { CollaboratorsService } from './collaborators.service'
+import { CollaboratorRole } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { paginateOutput } from 'src/utils/pagination.utils'
 import { mockedCollaborators, mockPaginationQuery } from './collaborators.mocks'
-import { CollaboratorRole } from 'src/generated/prisma/enums'
-import { NotFoundException, BadRequestException } from '@nestjs/common'
+import { CollaboratorsService } from './collaborators.service'
 
 describe('CollaboratorsService', () => {
   let service: CollaboratorsService
@@ -65,7 +65,9 @@ describe('CollaboratorsService', () => {
     const collaborator = mockedCollaborators[0]
     const addData = { email: 'test@test.com', role: CollaboratorRole.EDITOR }
 
-    jest.spyOn(prisma.user, 'findUnique').mockResolvedValue({ id: 'user-1', name: 'Test User', email: 'test@test.com' } as any)
+    jest
+      .spyOn(prisma.user, 'findUnique')
+      .mockResolvedValue({ id: 'user-1', name: 'Test User', email: 'test@test.com' } as any)
     jest.spyOn(prisma.projectCollaborator, 'create').mockResolvedValue(collaborator)
 
     const result = await service.create({ projectId: 'project-1', data: addData })
@@ -79,7 +81,10 @@ describe('CollaboratorsService', () => {
     jest.spyOn(prisma.user, 'findUnique').mockResolvedValue(null)
 
     await expect(
-      service.create({ projectId: 'project-1', data: { email: 'non-existent@test.com', role: CollaboratorRole.EDITOR } }),
+      service.create({
+        projectId: 'project-1',
+        data: { email: 'non-existent@test.com', role: CollaboratorRole.EDITOR },
+      }),
     ).rejects.toThrow(NotFoundException)
   })
 
@@ -88,7 +93,9 @@ describe('CollaboratorsService', () => {
     const updateData = { role: CollaboratorRole.VIEWER }
 
     jest.spyOn(prisma.projectCollaborator, 'findUnique').mockResolvedValue(collaborator)
-    jest.spyOn(prisma.projectCollaborator, 'update').mockResolvedValue({ ...collaborator, ...updateData })
+    jest
+      .spyOn(prisma.projectCollaborator, 'update')
+      .mockResolvedValue({ ...collaborator, ...updateData })
 
     const result = await service.update({
       projectId: 'project-1',
@@ -127,7 +134,9 @@ describe('CollaboratorsService', () => {
   it('should throw NotFoundException when deleting non-existent collaborator', async () => {
     jest.spyOn(prisma.projectCollaborator, 'findUnique').mockResolvedValue(null)
 
-    await expect(service.delete({ userId: 'user-1', projectId: 'project-1' })).rejects.toThrow(NotFoundException)
+    await expect(service.delete({ userId: 'user-1', projectId: 'project-1' })).rejects.toThrow(
+      NotFoundException,
+    )
   })
 
   it('should throw BadRequestException when deleting owner collaborator', async () => {
@@ -135,6 +144,8 @@ describe('CollaboratorsService', () => {
 
     jest.spyOn(prisma.projectCollaborator, 'findUnique').mockResolvedValue(ownerCollaborator)
 
-    await expect(service.delete({ userId: 'user-1', projectId: 'project-1' })).rejects.toThrow(BadRequestException)
+    await expect(service.delete({ userId: 'user-1', projectId: 'project-1' })).rejects.toThrow(
+      BadRequestException,
+    )
   })
 })

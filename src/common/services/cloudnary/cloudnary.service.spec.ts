@@ -8,10 +8,10 @@ jest.mock('cloudinary', () => ({
   },
 }))
 
-import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-import { CloudnaryService } from './cloudnary.service';
-import { Writable } from 'stream';
+import { Writable } from 'node:stream'
+import { ConfigService } from '@nestjs/config'
+import { Test, TestingModule } from '@nestjs/testing'
+import { CloudnaryService } from './cloudnary.service'
 
 describe('CloudnaryService', () => {
   let service: CloudnaryService
@@ -67,17 +67,15 @@ describe('CloudnaryService', () => {
         },
       })
 
-      let capturedCallback: Function = undefined as any
-      cloudinaryMock.uploader.upload_stream.mockImplementation(
-        (_options: any, callback: any) => {
-          capturedCallback = callback
-          return mockWritable
-        },
-      )
+      let capturedCallback: ((...args: unknown[]) => void) | undefined
+      cloudinaryMock.uploader.upload_stream.mockImplementation((_options: any, callback: any) => {
+        capturedCallback = callback
+        return mockWritable
+      })
 
       const uploadPromise = service.upload({ file, folder: 'avatars', name: 'user1' })
 
-      capturedCallback(null, { public_id: 'user1', version: 123 })
+      capturedCallback?.(null, { public_id: 'user1', version: 123 })
 
       const result = await uploadPromise
 
@@ -85,7 +83,9 @@ describe('CloudnaryService', () => {
         { public_id: 'user1', folder: 'avatars' },
         expect.any(Function),
       )
-      expect(result).toEqual({ url: 'https://res.cloudinary.com/test/image/upload/v1/avatars/user1' })
+      expect(result).toEqual({
+        url: 'https://res.cloudinary.com/test/image/upload/v1/avatars/user1',
+      })
     })
   })
 })

@@ -55,7 +55,8 @@ export class ValidateResourcesIdsInterceptor implements NestInterceptor {
     if (userId !== undefined) {
       // Rejeita userId ausente/malformado com 400 claro, em vez de cair na
       // busca de usuário e retornar um 404 "User not found." enganoso.
-      if (!isUUID(userId)) throw new BadRequestException('userId is required and must be a valid UUID')
+      if (!isUUID(userId))
+        throw new BadRequestException('userId is required and must be a valid UUID')
 
       const user = await this.prisma.user.findFirst({ where: { id: userId } })
 

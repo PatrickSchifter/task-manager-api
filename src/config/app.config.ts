@@ -30,4 +30,8 @@ export default () => ({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL,
   },
+  caption: {
+    provider: process.env.CAPTION_PROVIDER ?? 'openai',
+    openaiVisionModel: process.env.OPENAI_VISION_MODEL ?? 'gpt-4o-mini',
+  },
 })

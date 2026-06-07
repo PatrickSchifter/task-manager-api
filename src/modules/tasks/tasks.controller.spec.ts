@@ -1,12 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing'
 import { INestApplication } from '@nestjs/common'
+import { Reflector } from '@nestjs/core'
+import { Test, TestingModule } from '@nestjs/testing'
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
+import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
+import { PrismaService } from 'src/prisma/prisma.service'
 import request from 'supertest'
 import { TasksController } from './tasks.controller'
 import { TasksService } from './tasks.service'
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
-import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
-import { Reflector } from '@nestjs/core'
-import { PrismaService } from 'src/prisma/prisma.service'
 
 describe('TasksController (integration)', () => {
   let app: INestApplication
@@ -34,8 +34,12 @@ describe('TasksController (integration)', () => {
       findAllByProjectId: jest.fn().mockResolvedValue({
         data: [mockTask],
         meta: {
-          total: 1, currentPage: 1, lastPage: 1,
-          nextPage: null, prevPage: null, totalPerPage: 10,
+          total: 1,
+          currentPage: 1,
+          lastPage: 1,
+          nextPage: null,
+          prevPage: null,
+          totalPerPage: 10,
         },
       }),
       findById: jest.fn().mockResolvedValue(mockTask),
@@ -67,7 +71,7 @@ describe('TasksController (integration)', () => {
         },
       })
       .overrideInterceptor(ValidateResourcesIdsInterceptor)
-      .useValue({ intercept: jest.fn((ctx, next) => next.handle()) })
+      .useValue({ intercept: jest.fn((_ctx, next) => next.handle()) })
       .compile()
 
     app = module.createNestApplication()
@@ -82,7 +86,7 @@ describe('TasksController (integration)', () => {
 
   describe('GET /projects/:projectId/tasks', () => {
     it('should return paginated tasks', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .get(`/projects/${validProjectId}/tasks`)
         .expect(200)
 
@@ -95,7 +99,7 @@ describe('TasksController (integration)', () => {
 
   describe('POST /projects/:projectId/tasks', () => {
     it('should create a task', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .post(`/projects/${validProjectId}/tasks`)
         .send({ title: 'New Task' })
         .expect(201)
@@ -110,7 +114,7 @@ describe('TasksController (integration)', () => {
 
   describe('GET /projects/:projectId/tasks/:taskId', () => {
     it('should return a task by id', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .get(`/projects/${validProjectId}/tasks/${validTaskId}`)
         .expect(200)
 
@@ -123,7 +127,7 @@ describe('TasksController (integration)', () => {
 
   describe('PUT /projects/:projectId/tasks/:taskId', () => {
     it('should update a task', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .put(`/projects/${validProjectId}/tasks/${validTaskId}`)
         .send({ title: 'Updated' })
         .expect(200)

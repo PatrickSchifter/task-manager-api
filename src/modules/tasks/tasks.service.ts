@@ -4,6 +4,7 @@ import { PaginatedResponseDTO, QueryPaginationDTO } from 'src/common/dtos/query.
 import { PrismaService } from 'src/prisma/prisma.service'
 import { generateKeyBetween } from 'src/utils/fractional-indexing'
 import { paginate, paginateOutput } from 'src/utils/pagination.utils'
+import { AttachmentsService } from '../attachments/attachments.service'
 import { RagService } from '../rag/rag.service'
 import { TagsService } from '../tags/tags.service'
 import { TaskItemListDTO, TasksRequestDTO } from './tasks.dto'
@@ -61,9 +62,9 @@ function subtaskProgress(subtasks: { status: string }[]) {
 
 // Mapeia um item de lista que traz `subtasks: {status}[]`: achata tags e troca o
 // array de subtarefas pelo contador `subtaskProgress`.
-function toListItemWithProgress<
-  T extends { tags: TaskTagRow[]; subtasks: { status: string }[] },
->(task: T) {
+function toListItemWithProgress<T extends { tags: TaskTagRow[]; subtasks: { status: string }[] }>(
+  task: T,
+) {
   const { subtasks, tags, ...rest } = task
   return {
     ...rest,
@@ -85,6 +86,7 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly ragService: RagService,
     private readonly tagsService: TagsService,
+    private readonly attachmentsService: AttachmentsService,
   ) {}
 
   // Autoriza o ator (dono ou colaborador) a operar sobre o projeto. No HTTP o
@@ -195,7 +197,10 @@ export class TasksService {
       include: {
         assignee: { select: { id: true, name: true, email: true, avatar: true } },
         comments: {
-          include: { author: { select: { id: true, name: true, email: true, avatar: true } } },
+          include: {
+            author: { select: { id: true, name: true, email: true, avatar: true } },
+            attachments: { select: { id: true, fileName: true, mimeType: true, size: true } },
+          },
         },
         ...tagsSelect,
         // Subtarefas completas (ordenadas) para a seção de subtarefas do detalhe.
@@ -311,6 +316,10 @@ export class TasksService {
     const subtaskIds = task.subtasks.map((s) => s.id)
     const allIds = [id, ...subtaskIds]
 
+    // Limpa arquivos físicos dos anexos e dispara deleção de embeddings
+    // ANTES do cascade do banco remover os registros de Attachment.
+    await this.attachmentsService.cleanupForTasks(allIds)
+
     // Comment não tem cascade no banco: remover comentários do pai + subtarefas
     // antes de deletar, senão o cascade da task esbarraria na FK dos comments.
     await this.prisma.comment.deleteMany({ where: { taskId: { in: allIds } } })
@@ -318,7 +327,7 @@ export class TasksService {
     await this.prisma.task.delete({ where: { id, projectId } })
 
     // Limpa embeddings da task e de todas as subtarefas removidas.
-    allIds.forEach((taskId) => this.ragService.dispatchTaskDelete(taskId))
+    for (const taskId of allIds) this.ragService.dispatchTaskDelete(taskId)
     // Se era uma subtarefa, reindexa o pai (o progresso dele mudou).
     if (task.parentId) this.ragService.dispatchTaskEmbedding(task.parentId)
     return

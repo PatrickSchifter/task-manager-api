@@ -34,7 +34,7 @@ describe('ProjectsController', () => {
     })
       .overrideInterceptor(ValidateResourcesIdsInterceptor)
       .useValue({
-        intercept: jest.fn((context, next) => next.handle()),
+        intercept: jest.fn((_context, next) => next.handle()),
       })
       .compile()
 

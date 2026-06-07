@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config'
 import { Prisma } from 'src/generated/prisma/client'
 import { ChatService } from '../chat/chat.service'
 import {
-  type AgentProvider,
   type ActionRecord,
+  type AgentProvider,
   type ConversationTurn,
 } from './providers/agent-provider'
 import { AnthropicAgentProvider } from './providers/anthropic-agent.provider'

@@ -1,7 +1,7 @@
-import { Test, TestingModule } from '@nestjs/testing'
 import { ClientProxy } from '@nestjs/microservices'
-import { RagService } from './rag.service'
+import { Test, TestingModule } from '@nestjs/testing'
 import { EMBEDDING_SERVICE } from 'src/consts'
+import { RagService } from './rag.service'
 
 describe('RagService', () => {
   let service: RagService
@@ -33,7 +33,9 @@ describe('RagService', () => {
   describe('dispatch methods', () => {
     it('should dispatch task embedding', () => {
       service.dispatchTaskEmbedding('task1')
-      expect(embeddingClient.emit).toHaveBeenCalledWith('GENERATE_TASK_EMBEDDING', { taskId: 'task1' })
+      expect(embeddingClient.emit).toHaveBeenCalledWith('GENERATE_TASK_EMBEDDING', {
+        taskId: 'task1',
+      })
     })
 
     it('should dispatch comment embedding', () => {
@@ -67,7 +69,9 @@ describe('RagService', () => {
 
     it('should dispatch task delete', () => {
       service.dispatchTaskDelete('task1')
-      expect(embeddingClient.emit).toHaveBeenCalledWith('DELETE_TASK_EMBEDDING', { taskId: 'task1' })
+      expect(embeddingClient.emit).toHaveBeenCalledWith('DELETE_TASK_EMBEDDING', {
+        taskId: 'task1',
+      })
     })
 
     it('should log error on dispatch failure', () => {

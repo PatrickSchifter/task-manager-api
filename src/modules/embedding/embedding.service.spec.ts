@@ -1,13 +1,15 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { EmbeddingService } from './embedding.service';
-import { PrismaService } from 'src/prisma/prisma.service';
-import { ConfigService } from '@nestjs/config';
-import { NotFoundException } from '@nestjs/common';
-import { EmbeddingSourceType } from 'src/generated/prisma/client';
+import { NotFoundException } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
+import { Test, TestingModule } from '@nestjs/testing'
+import { EmbeddingSourceType } from 'src/generated/prisma/client'
+import { PrismaService } from 'src/prisma/prisma.service'
+import { CAPTION_PROVIDER } from '../caption/caption.provider'
+import { StorageService } from '../storage/storage.service'
+import { EmbeddingService } from './embedding.service'
 
 const mockEmbeddingResponse = {
   data: [{ embedding: [0.1, 0.2, 0.3] }],
-};
+}
 
 jest.mock('openai', () => {
   return jest.fn().mockImplementation(() => ({
@@ -19,12 +21,12 @@ jest.mock('openai', () => {
         create: jest.fn(),
       },
     },
-  }));
-});
+  }))
+})
 
 describe('EmbeddingService', () => {
-  let service: EmbeddingService;
-  let prisma: PrismaService;
+  let service: EmbeddingService
+  let prisma: PrismaService
 
   const mockTask = {
     id: 'task1',
@@ -41,7 +43,7 @@ describe('EmbeddingService', () => {
     tags: [],
     parent: null,
     subtasks: [],
-  };
+  }
 
   const mockComment = {
     id: 'comment1',
@@ -50,7 +52,7 @@ describe('EmbeddingService', () => {
     authorId: 'user1',
     task: { id: 'task1', title: 'Test Task', projectId: 'project1' },
     author: { name: 'Test User' },
-  };
+  }
 
   const mockProject = {
     id: 'project1',
@@ -58,7 +60,7 @@ describe('EmbeddingService', () => {
     description: 'A test project',
     createdById: 'user1',
     createdBy: { name: 'Test User' },
-  };
+  }
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -79,6 +81,11 @@ describe('EmbeddingService', () => {
               findUnique: jest.fn(),
               findMany: jest.fn(),
             },
+            attachment: {
+              findUnique: jest.fn(),
+              findMany: jest.fn(),
+              update: jest.fn(),
+            },
             embedding: {
               deleteMany: jest.fn(),
             },
@@ -92,25 +99,33 @@ describe('EmbeddingService', () => {
             getOrThrow: jest.fn().mockReturnValue('sk-test-key'),
           },
         },
+        {
+          provide: StorageService,
+          useValue: { download: jest.fn() },
+        },
+        {
+          provide: CAPTION_PROVIDER,
+          useValue: { describe: jest.fn() },
+        },
       ],
-    }).compile();
+    }).compile()
 
-    service = module.get<EmbeddingService>(EmbeddingService);
-    prisma = module.get<PrismaService>(PrismaService);
+    service = module.get<EmbeddingService>(EmbeddingService)
+    prisma = module.get<PrismaService>(PrismaService)
 
-    jest.clearAllMocks();
-  });
+    jest.clearAllMocks()
+  })
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
+    expect(service).toBeDefined()
+  })
 
   describe('generateForTask', () => {
     it('should generate embedding for a task', async () => {
-      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(mockTask as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
+      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(mockTask as any)
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any)
 
-      await service.generateForTask('task1');
+      await service.generateForTask('task1')
 
       expect(prisma.task.findUnique).toHaveBeenCalledWith({
         where: { id: 'task1' },
@@ -121,9 +136,9 @@ describe('EmbeddingService', () => {
           parent: { select: { id: true, title: true } },
           subtasks: { select: { title: true, status: true } },
         },
-      });
-      expect(prisma.$executeRaw).toHaveBeenCalled();
-    });
+      })
+      expect(prisma.$executeRaw).toHaveBeenCalled()
+    })
 
     it('embeds the parent link + parentId metadata for a subtask', async () => {
       const subtask = {
@@ -132,16 +147,16 @@ describe('EmbeddingService', () => {
         parentId: 'task1',
         parent: { id: 'task1', title: 'Parent Task' },
         subtasks: [],
-      };
-      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(subtask as any);
-      const upsertSpy = jest.spyOn(service as any, 'upsert').mockResolvedValue(undefined);
+      }
+      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(subtask as any)
+      const upsertSpy = jest.spyOn(service as any, 'upsert').mockResolvedValue(undefined)
 
-      await service.generateForTask('sub1');
+      await service.generateForTask('sub1')
 
-      const arg = upsertSpy.mock.calls[0][0] as { content: string; metadata: any };
-      expect(arg.content).toContain('Parent task: Parent Task');
-      expect(arg.metadata).toMatchObject({ parentId: 'task1', parentTitle: 'Parent Task' });
-    });
+      const arg = upsertSpy.mock.calls[0][0] as { content: string; metadata: any }
+      expect(arg.content).toContain('Parent task: Parent Task')
+      expect(arg.metadata).toMatchObject({ parentId: 'task1', parentTitle: 'Parent Task' })
+    })
 
     it('embeds a subtasks summary (done/total) for a parent task', async () => {
       const parent = {
@@ -153,16 +168,16 @@ describe('EmbeddingService', () => {
           { title: 'A', status: 'DONE' },
           { title: 'B', status: 'TODO' },
         ],
-      };
-      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(parent as any);
-      const upsertSpy = jest.spyOn(service as any, 'upsert').mockResolvedValue(undefined);
+      }
+      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(parent as any)
+      const upsertSpy = jest.spyOn(service as any, 'upsert').mockResolvedValue(undefined)
 
-      await service.generateForTask('task1');
+      await service.generateForTask('task1')
 
-      const arg = upsertSpy.mock.calls[0][0] as { content: string; metadata: any };
-      expect(arg.content).toContain('Subtasks (1/2 done): [DONE] A; [TODO] B');
-      expect(arg.metadata).toMatchObject({ parentId: null, parentTitle: null });
-    });
+      const arg = upsertSpy.mock.calls[0][0] as { content: string; metadata: any }
+      expect(arg.content).toContain('Subtasks (1/2 done): [DONE] A; [TODO] B')
+      expect(arg.metadata).toMatchObject({ parentId: null, parentTitle: null })
+    })
 
     it('should generate embedding for a task without optional fields', async () => {
       const minimalTask = {
@@ -180,28 +195,28 @@ describe('EmbeddingService', () => {
         tags: [],
         parent: null,
         subtasks: [],
-      };
-      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(minimalTask as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
+      }
+      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(minimalTask as any)
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any)
 
-      await service.generateForTask('task2');
+      await service.generateForTask('task2')
 
-      expect(prisma.$executeRaw).toHaveBeenCalled();
-    });
+      expect(prisma.$executeRaw).toHaveBeenCalled()
+    })
 
     it('should throw NotFoundException if task not found', async () => {
-      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(null);
+      jest.spyOn(prisma.task, 'findUnique').mockResolvedValue(null)
 
-      await expect(service.generateForTask('nonexistent')).rejects.toThrow(NotFoundException);
-    });
-  });
+      await expect(service.generateForTask('nonexistent')).rejects.toThrow(NotFoundException)
+    })
+  })
 
   describe('generateForComment', () => {
     it('should generate embedding for a comment', async () => {
-      jest.spyOn(prisma.comment, 'findUnique').mockResolvedValue(mockComment as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
+      jest.spyOn(prisma.comment, 'findUnique').mockResolvedValue(mockComment as any)
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any)
 
-      await service.generateForComment('comment1');
+      await service.generateForComment('comment1')
 
       expect(prisma.comment.findUnique).toHaveBeenCalledWith({
         where: { id: 'comment1' },
@@ -209,79 +224,80 @@ describe('EmbeddingService', () => {
           task: { select: { id: true, title: true, projectId: true } },
           author: { select: { name: true } },
         },
-      });
-      expect(prisma.$executeRaw).toHaveBeenCalled();
-    });
+      })
+      expect(prisma.$executeRaw).toHaveBeenCalled()
+    })
 
     it('should throw NotFoundException if comment not found', async () => {
-      jest.spyOn(prisma.comment, 'findUnique').mockResolvedValue(null);
+      jest.spyOn(prisma.comment, 'findUnique').mockResolvedValue(null)
 
-      await expect(service.generateForComment('nonexistent')).rejects.toThrow(NotFoundException);
-    });
-  });
+      await expect(service.generateForComment('nonexistent')).rejects.toThrow(NotFoundException)
+    })
+  })
 
   describe('generateForProject', () => {
     it('should generate embedding for a project with description', async () => {
-      jest.spyOn(prisma.project, 'findUnique').mockResolvedValue(mockProject as any);
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
+      jest.spyOn(prisma.project, 'findUnique').mockResolvedValue(mockProject as any)
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any)
 
-      await service.generateForProject('project1');
+      await service.generateForProject('project1')
 
       expect(prisma.project.findUnique).toHaveBeenCalledWith({
         where: { id: 'project1' },
         include: { createdBy: { select: { name: true } } },
-      });
-      expect(prisma.$executeRaw).toHaveBeenCalled();
-    });
+      })
+      expect(prisma.$executeRaw).toHaveBeenCalled()
+    })
 
     it('should skip embedding if project has no description', async () => {
-      const projectWithoutDesc = { ...mockProject, description: null };
-      jest.spyOn(prisma.project, 'findUnique').mockResolvedValue(projectWithoutDesc as any);
+      const projectWithoutDesc = { ...mockProject, description: null }
+      jest.spyOn(prisma.project, 'findUnique').mockResolvedValue(projectWithoutDesc as any)
 
-      await service.generateForProject('project1');
+      await service.generateForProject('project1')
 
-      expect(prisma.$executeRaw).not.toHaveBeenCalled();
-    });
+      expect(prisma.$executeRaw).not.toHaveBeenCalled()
+    })
 
     it('should throw NotFoundException if project not found', async () => {
-      jest.spyOn(prisma.project, 'findUnique').mockResolvedValue(null);
+      jest.spyOn(prisma.project, 'findUnique').mockResolvedValue(null)
 
-      await expect(service.generateForProject('nonexistent')).rejects.toThrow(NotFoundException);
-    });
-  });
+      await expect(service.generateForProject('nonexistent')).rejects.toThrow(NotFoundException)
+    })
+  })
 
   describe('deleteBySource', () => {
     it('should delete embedding by source type and id', async () => {
-      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any);
+      jest.spyOn(prisma, '$executeRaw').mockResolvedValue(0 as any)
 
-      await service.deleteBySource(EmbeddingSourceType.TASK, 'task1');
+      await service.deleteBySource(EmbeddingSourceType.TASK, 'task1')
 
-      expect(prisma.$executeRaw).toHaveBeenCalled();
-    });
-  });
+      expect(prisma.$executeRaw).toHaveBeenCalled()
+    })
+  })
 
   describe('deleteByTask', () => {
     it('should delete embeddings by task id', async () => {
-      jest.spyOn(prisma.embedding, 'deleteMany').mockResolvedValue({ count: 2 } as any);
+      jest.spyOn(prisma.embedding, 'deleteMany').mockResolvedValue({ count: 2 } as any)
 
-      await service.deleteByTask('task1');
+      await service.deleteByTask('task1')
 
       expect(prisma.embedding.deleteMany).toHaveBeenCalledWith({
         where: {
           OR: [
             { sourceType: 'TASK', sourceId: 'task1' },
             { sourceType: 'COMMENT', metadata: { path: ['taskId'], equals: 'task1' } },
+            { sourceType: 'ATTACHMENT', metadata: { path: ['taskId'], equals: 'task1' } },
           ],
         },
-      });
-    });
-  });
+      })
+    })
+  })
 
   describe('deleteByProject', () => {
     it('should delete embeddings by project id', async () => {
-      jest.spyOn(prisma.embedding, 'deleteMany').mockResolvedValue({ count: 3 } as any);
+      jest.spyOn(prisma.embedding, 'deleteMany').mockResolvedValue({ count: 3 } as any)
 
-      await service.deleteByProject('project1');
+      await service.deleteByProject('project1')
 
       expect(prisma.embedding.deleteMany).toHaveBeenCalledWith({
         where: {
@@ -289,99 +305,115 @@ describe('EmbeddingService', () => {
             { sourceType: 'PROJECT', sourceId: 'project1' },
             { sourceType: 'TASK', metadata: { path: ['projectId'], equals: 'project1' } },
             { sourceType: 'COMMENT', metadata: { path: ['projectId'], equals: 'project1' } },
+            { sourceType: 'ATTACHMENT', metadata: { path: ['projectId'], equals: 'project1' } },
           ],
         },
-      });
-    });
-  });
+      })
+    })
+  })
 
   describe('searchSimilar', () => {
     it('should search similar embeddings without allowedSourceIds', async () => {
-      jest.spyOn(prisma, '$queryRaw').mockResolvedValue([
-        { sourceType: 'TASK', sourceId: 'task1', content: 'test', similarity: 0.95 },
-      ]);
+      jest
+        .spyOn(prisma, '$queryRaw')
+        .mockResolvedValue([
+          { sourceType: 'TASK', sourceId: 'task1', content: 'test', similarity: 0.95 },
+        ])
 
-      const results = await service.searchSimilar({ userId: 'user1', query: 'test query' });
+      const results = await service.searchSimilar({ userId: 'user1', query: 'test query' })
 
-      expect(prisma.$queryRaw).toHaveBeenCalled();
-      expect(results).toHaveLength(1);
-      expect(results[0].similarity).toBe(0.95);
-    });
+      expect(prisma.$queryRaw).toHaveBeenCalled()
+      expect(results).toHaveLength(1)
+      expect(results[0].similarity).toBe(0.95)
+    })
 
     it('should search similar embeddings with allowedSourceIds', async () => {
-      jest.spyOn(prisma, '$queryRaw').mockResolvedValue([
-        { sourceType: 'TASK', sourceId: 'task1', content: 'test', similarity: 0.9 },
-      ]);
+      jest
+        .spyOn(prisma, '$queryRaw')
+        .mockResolvedValue([
+          { sourceType: 'TASK', sourceId: 'task1', content: 'test', similarity: 0.9 },
+        ])
 
       const results = await service.searchSimilar({
         userId: 'user1',
         query: 'test query',
         allowedSourceIds: [{ sourceType: EmbeddingSourceType.TASK, sourceId: 'task1' }],
-      });
+      })
 
-      expect(prisma.$queryRaw).toHaveBeenCalled();
-      expect(results).toHaveLength(1);
-    });
-  });
+      expect(prisma.$queryRaw).toHaveBeenCalled()
+      expect(results).toHaveLength(1)
+    })
+  })
 
   describe('filterToEmbeddingIds', () => {
     it('should filter tasks by status and priority', async () => {
-      const tasks = [{ id: 'task1' }, { id: 'task2' }];
-      jest.spyOn(prisma.task, 'findMany').mockResolvedValue(tasks as any);
-      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([] as any);
-      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([] as any);
+      const tasks = [{ id: 'task1' }, { id: 'task2' }]
+      jest.spyOn(prisma.task, 'findMany').mockResolvedValue(tasks as any)
+      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([] as any)
+      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([] as any)
 
       const result = await service.filterToEmbeddingIds('user1', {
         status: ['TODO'],
         priority: ['HIGH'],
         sourceTypes: ['TASK'],
-      });
+      })
 
       expect(result).toEqual([
         { sourceType: EmbeddingSourceType.TASK, sourceId: 'task1' },
         { sourceType: EmbeddingSourceType.TASK, sourceId: 'task2' },
-      ]);
-    });
+      ])
+    })
 
     it('should filter by all source types', async () => {
-      jest.spyOn(prisma.task, 'findMany').mockResolvedValue([{ id: 'task1' }] as any);
-      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([{ id: 'comment1' }] as any);
-      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([{ id: 'project1' }] as any);
+      jest.spyOn(prisma.task, 'findMany').mockResolvedValue([{ id: 'task1' }] as any)
+      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([{ id: 'comment1' }] as any)
+      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([{ id: 'project1' }] as any)
+      jest.spyOn(prisma.attachment, 'findMany').mockResolvedValue([{ id: 'att1' }] as any)
 
-      const result = await service.filterToEmbeddingIds('user1', {});
+      const result = await service.filterToEmbeddingIds('user1', {})
 
-      expect(result).toHaveLength(3);
-      expect(result).toContainEqual({ sourceType: EmbeddingSourceType.TASK, sourceId: 'task1' });
-      expect(result).toContainEqual({ sourceType: EmbeddingSourceType.COMMENT, sourceId: 'comment1' });
-      expect(result).toContainEqual({ sourceType: EmbeddingSourceType.PROJECT, sourceId: 'project1' });
-    });
+      expect(result).toHaveLength(4)
+      expect(result).toContainEqual({ sourceType: EmbeddingSourceType.TASK, sourceId: 'task1' })
+      expect(result).toContainEqual({
+        sourceType: EmbeddingSourceType.COMMENT,
+        sourceId: 'comment1',
+      })
+      expect(result).toContainEqual({
+        sourceType: EmbeddingSourceType.PROJECT,
+        sourceId: 'project1',
+      })
+      expect(result).toContainEqual({
+        sourceType: EmbeddingSourceType.ATTACHMENT,
+        sourceId: 'att1',
+      })
+    })
 
     it('should filter comments with projectId filter', async () => {
-      jest.spyOn(prisma.task, 'findMany').mockResolvedValue([] as any);
-      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([{ id: 'comment1' }] as any);
-      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([] as any);
+      jest.spyOn(prisma.task, 'findMany').mockResolvedValue([] as any)
+      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([{ id: 'comment1' }] as any)
+      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([] as any)
 
       const result = await service.filterToEmbeddingIds('user1', {
         sourceTypes: ['COMMENT'],
         projectId: 'project1',
-      });
+      })
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({ sourceType: EmbeddingSourceType.COMMENT, sourceId: 'comment1' });
-    });
+      expect(result).toHaveLength(1)
+      expect(result[0]).toEqual({ sourceType: EmbeddingSourceType.COMMENT, sourceId: 'comment1' })
+    })
 
     it('should filter projects with projectId filter', async () => {
-      jest.spyOn(prisma.task, 'findMany').mockResolvedValue([] as any);
-      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([] as any);
-      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([{ id: 'project1' }] as any);
+      jest.spyOn(prisma.task, 'findMany').mockResolvedValue([] as any)
+      jest.spyOn(prisma.comment, 'findMany').mockResolvedValue([] as any)
+      jest.spyOn(prisma.project, 'findMany').mockResolvedValue([{ id: 'project1' }] as any)
 
       const result = await service.filterToEmbeddingIds('user1', {
         sourceTypes: ['PROJECT'],
         projectId: 'project1',
-      });
+      })
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).toEqual({ sourceType: EmbeddingSourceType.PROJECT, sourceId: 'project1' });
-    });
-  });
-});
+      expect(result).toHaveLength(1)
+      expect(result[0]).toEqual({ sourceType: EmbeddingSourceType.PROJECT, sourceId: 'project1' })
+    })
+  })
+})

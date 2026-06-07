@@ -1,12 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing'
 import { INestApplication } from '@nestjs/common'
+import { Reflector } from '@nestjs/core'
+import { Test, TestingModule } from '@nestjs/testing'
+import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
+import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
+import { PrismaService } from 'src/prisma/prisma.service'
 import request from 'supertest'
 import { CommentsController } from './comments.controller'
 import { CommentsService } from './comments.service'
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth/jwt-auth.guard'
-import { ValidateResourcesIdsInterceptor } from 'src/common/interceptors/validate-resources-ids.interceptor'
-import { Reflector } from '@nestjs/core'
-import { PrismaService } from 'src/prisma/prisma.service'
 
 describe('CommentsController (integration)', () => {
   let app: INestApplication
@@ -32,8 +32,12 @@ describe('CommentsController (integration)', () => {
       findByTaskId: jest.fn().mockResolvedValue({
         data: [mockComment],
         meta: {
-          total: 1, currentPage: 1, lastPage: 1,
-          nextPage: null, prevPage: null, totalPerPage: 10,
+          total: 1,
+          currentPage: 1,
+          lastPage: 1,
+          nextPage: null,
+          prevPage: null,
+          totalPerPage: 10,
         },
       }),
       findById: jest.fn().mockResolvedValue(mockComment),
@@ -65,7 +69,7 @@ describe('CommentsController (integration)', () => {
         },
       })
       .overrideInterceptor(ValidateResourcesIdsInterceptor)
-      .useValue({ intercept: jest.fn((ctx, next) => next.handle()) })
+      .useValue({ intercept: jest.fn((_ctx, next) => next.handle()) })
       .compile()
 
     app = module.createNestApplication()
@@ -80,7 +84,7 @@ describe('CommentsController (integration)', () => {
 
   describe('POST /projects/:projectId/tasks/:taskId/comments', () => {
     it('should create a comment', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .post(`/projects/${validProjectId}/tasks/${validTaskId}/comments`)
         .send({ content: 'New Comment' })
         .expect(201)
@@ -88,6 +92,7 @@ describe('CommentsController (integration)', () => {
       expect(service.create).toHaveBeenCalledWith({
         actorId: 'user1',
         data: { content: 'New Comment' },
+        files: [],
         taskId: validTaskId,
       })
     })
@@ -95,7 +100,7 @@ describe('CommentsController (integration)', () => {
 
   describe('GET /projects/:projectId/tasks/:taskId/comments', () => {
     it('should return paginated comments', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .get(`/projects/${validProjectId}/tasks/${validTaskId}/comments`)
         .expect(200)
 
@@ -108,7 +113,7 @@ describe('CommentsController (integration)', () => {
 
   describe('GET /projects/:projectId/tasks/:taskId/comments/:commentId', () => {
     it('should return a comment by id', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .get(`/projects/${validProjectId}/tasks/${validTaskId}/comments/${validCommentId}`)
         .expect(200)
 
@@ -118,7 +123,7 @@ describe('CommentsController (integration)', () => {
 
   describe('PUT /projects/:projectId/tasks/:taskId/comments/:commentId', () => {
     it('should update a comment', async () => {
-      const res = await request(app.getHttpServer())
+      const _res = await request(app.getHttpServer())
         .put(`/projects/${validProjectId}/tasks/${validTaskId}/comments/${validCommentId}`)
         .send({ content: 'Updated' })
         .expect(200)

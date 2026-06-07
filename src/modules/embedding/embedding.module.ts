@@ -2,11 +2,15 @@ import { Module } from '@nestjs/common'
 import { ConfigModule, ConfigService } from '@nestjs/config'
 import { ClientsModule, Transport } from '@nestjs/microservices'
 import { EMBEDDING_QUEUE, EMBEDDING_SERVICE } from 'src/consts'
+import { CaptionModule } from '../caption/caption.module'
+import { StorageModule } from '../storage/storage.module'
 import { EmbeddingConsumer } from './embedding.consumer'
 import { EmbeddingService } from './embedding.service'
 
 @Module({
   imports: [
+    StorageModule,
+    CaptionModule,
     ClientsModule.registerAsync([
       {
         name: EMBEDDING_SERVICE,

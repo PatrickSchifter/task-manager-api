@@ -4,13 +4,13 @@ jest.mock('@nestjs/common', () => {
   const actual = jest.requireActual('@nestjs/common')
   return {
     ...actual,
-    createParamDecorator: jest.fn().mockImplementation(
-      (factory: (data: unknown, ctx: ExecutionContext) => any) => {
+    createParamDecorator: jest
+      .fn()
+      .mockImplementation((factory: (data: unknown, ctx: ExecutionContext) => any) => {
         return (data?: unknown, ctx?: ExecutionContext) => {
           return factory(data, ctx!)
         }
-      },
-    ),
+      }),
   }
 })
 

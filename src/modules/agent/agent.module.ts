@@ -20,12 +20,7 @@ import { ToolExecutorService } from './tool-executor.service'
     CommentsModule,
     CollaboratorsModule,
   ],
-  providers: [
-    AgentService,
-    ToolExecutorService,
-    AnthropicAgentProvider,
-    OpenAiAgentProvider,
-  ],
+  providers: [AgentService, ToolExecutorService, AnthropicAgentProvider, OpenAiAgentProvider],
   controllers: [AgentConsumer],
 })
 export class AgentModule {}

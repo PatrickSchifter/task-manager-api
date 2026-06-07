@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing'
 import { RequestContextService } from 'src/common/services/request-context/request-context.service'
-import { TaskPriority, TaskStatus } from 'src/generated/prisma/enums'
+import { TaskPriority } from 'src/generated/prisma/enums'
 import { PrismaService } from 'src/prisma/prisma.service'
 import { DashboardService } from './dashboard.service'
 
@@ -50,9 +50,9 @@ describe('DashboardService', () => {
         id: 'p1',
         name: 'Project 1',
         tasks: [
-          { status: TaskStatus.DONE },
-          { status: TaskStatus.TODO },
-          { status: TaskStatus.DONE },
+          { status: 'DONE' },
+          { status: 'TODO' },
+          { status: 'DONE' },
         ],
       },
     ] as never)
@@ -64,7 +64,7 @@ describe('DashboardService', () => {
         title: 'Task 1',
         dueDate,
         priority: TaskPriority.HIGH,
-        status: TaskStatus.TODO,
+        status: 'TODO',
         project: { name: 'Project 1', id: 'p1' },
       },
     ] as never)
@@ -88,7 +88,7 @@ describe('DashboardService', () => {
         project: { name: 'Project 1', id: 'p1' },
         dueDate: dueDate.toISOString(),
         priority: TaskPriority.HIGH,
-        status: TaskStatus.TODO,
+        status: 'TODO',
       },
     ])
   })
@@ -102,7 +102,7 @@ describe('DashboardService', () => {
         title: 'No due date',
         dueDate: null,
         priority: TaskPriority.LOW,
-        status: TaskStatus.IN_PROGRESS,
+        status: 'IN_PROGRESS',
         project: { name: 'P', id: 'p2' },
       },
     ] as never)
@@ -135,7 +135,7 @@ describe('DashboardService', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           project: expectedProjectWhere,
-          status: { not: TaskStatus.DONE },
+          status: { not: 'DONE' },
           dueDate: { not: null },
         }),
         take: 10,

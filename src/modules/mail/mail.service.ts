@@ -1,9 +1,9 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { Inject, Injectable } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 import { ClientProxy } from '@nestjs/microservices'
-import * as fs from 'fs'
 import * as handlebars from 'handlebars'
-import * as path from 'path'
 import { Resend } from 'resend'
 import { EMAIL_SERVICE, SEND_PASSWORD_RESET } from 'src/consts'
 
@@ -19,7 +19,7 @@ export class MailService {
     this.resend = new Resend(apiKey)
   }
 
-  private renderTemplate(templateName: string, data: any) {
+  private renderTemplate(templateName: string, data: Record<string, unknown>) {
     const filePath = path.join(process.cwd(), 'templates', `${templateName}.hbs`)
 
     const template = fs.readFileSync(filePath, 'utf-8')

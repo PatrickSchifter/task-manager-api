@@ -3,6 +3,7 @@ import { ThrottlerGuard } from '@nestjs/throttler'
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
+  // biome-ignore lint/suspicious/noExplicitAny: matches parent ThrottlerGuard signature
   protected async getTracker(req: Record<string, any>): Promise<string> {
     const forwarded = req.headers?.['x-forwarded-for']
     const ip =
@@ -27,6 +28,7 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
     return `${ip}:${email || 'no-email'}`
   }
 
+  // biome-ignore lint/suspicious/noExplicitAny: matches parent ThrottlerGuard req shape
   private extractUserId(req: Record<string, any>): string | null {
     const auth = req.headers?.authorization
     if (typeof auth !== 'string' || !auth.startsWith('Bearer ')) {
