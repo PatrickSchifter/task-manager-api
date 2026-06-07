@@ -59,7 +59,8 @@ export class CommentsController {
         files: {
           type: 'array',
           items: { type: 'string', format: 'binary' },
-          description: 'Optional attachments (pdf, docx, txt, csv, md — max 20 MB each)',
+          description:
+            'Optional attachments — images (jpg, png, webp; max 5 MB) or documents (pdf, doc, docx, txt, csv, md; max 20 MB)',
         },
       },
     },

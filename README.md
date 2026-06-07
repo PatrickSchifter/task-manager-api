@@ -59,7 +59,7 @@ Everything below is the engineering deep-dive: architecture, the AI pipeline, th
 
 ## What makes this project stand out (technically)
 
-Beyond standard CRUD, Task Manager ships with a full **RAG (Retrieval-Augmented Generation)** pipeline that indexes every project, task, and comment as vector embeddings in PostgreSQL — wrapped in an **agentic chat assistant** that runs a tool-use loop with Claude. The assistant doesn't just answer questions grounded in real data; it can also *act* — creating projects, tasks, and comments or inviting collaborators — all within the user's permissions.
+Beyond standard CRUD, Task Manager ships with a full **RAG (Retrieval-Augmented Generation)** pipeline that indexes every project, task, comment, **and uploaded file** as vector embeddings in PostgreSQL — wrapped in an **agentic chat assistant** that runs a tool-use loop with Claude. Files attached to comments are ingested into the same vector space: documents are text-extracted and images (or scanned PDFs) are run through a vision model for OCR, so the assistant can answer questions about the *contents* of an uploaded spec or screenshot, not just its filename. The assistant doesn't just answer questions grounded in real data; it can also *act* — creating projects, tasks, and comments or inviting collaborators — all within the user's permissions.
 
 The entire pipeline is **end-to-end asynchronous**: from the moment a user sends a message to the moment the answer is ready, every step runs through RabbitMQ queues — decoupled, observable, and independently scalable.
 
@@ -247,13 +247,15 @@ GET /v1/chat?limit=20    ← client fetches conversation history
 
 ### Embedding Pipeline
 
-When a project, task, or comment is created or updated, an event is emitted to the `embedding_queue`. A dedicated `EmbeddingConsumer` picks it up, builds a rich text representation of the entity (including title, description, status, priority, assignee, project name, and due date), generates a 1536-dimension vector via OpenAI's `text-embedding-3-small` model, and upserts it into PostgreSQL using the `pgvector` extension.
+When a project, task, comment, or **attachment** is created or updated, an event is emitted to the `embedding_queue`. A dedicated `EmbeddingConsumer` picks it up, builds a rich text representation of the entity (including title, description, status, priority, assignee, project name, and due date), generates a 1536-dimension vector via OpenAI's `text-embedding-3-small` model, and upserts it into PostgreSQL using the `pgvector` extension.
 
 Key design decisions:
 
-- The embedding table is **polymorphic** — projects, tasks, and comments all live in a single `Embedding` table with a `sourceType` discriminator, making it trivially extensible to new entity types
+- The embedding table is **polymorphic** — projects, tasks, comments, and attachments all live in a single `Embedding` table with a `sourceType` discriminator, making it trivially extensible to new entity types
 - Embeddings carry a `metadata` JSON field (`projectId`, `assigneeId`, `status`, `priority`, `dueDate`, and `parentId` / `parentTitle` for subtasks) enabling pre-filter queries without extra JOINs. The indexed text also includes the parent link on a subtask and a subtask summary (`Subtasks (3/5 done): ...`) on a parent, so the assistant can answer "what's left on task X?"
-- Deletes are **cascade-aware** — removing a project cleans up all related task and comment embeddings in a single query via metadata filtering
+- Attachments are **chunked** — a long document is split into overlapping ~700-token chunks, each stored as its own row sharing the same `sourceId` but a distinct `chunkIndex` (the `Embedding` unique key is `(sourceType, sourceId, chunkIndex)`). Re-embedding an attachment deletes all of its chunks first, so the operation is fully idempotent. Tasks, comments, and projects remain single-row (`chunkIndex = 0`)
+- Search is index-backed — an **HNSW** index (`vector_cosine_ops`) serves the nearest-neighbour sort, and the query orders by the raw distance operator (`vector <=> query`) so the index is actually used. Every result is scoped to projects the requesting user owns or collaborates on (attachment chunks carry their task's `projectId` in metadata, so they never leak across projects)
+- Deletes are **cascade-aware** — removing a project cleans up all related task, comment, and attachment embeddings in a single query via metadata filtering
 - The pipeline is **fully async** — embedding generation never adds latency to the API response
 
 ### User Authentication
@@ -282,11 +284,22 @@ An aggregated summary endpoint returning active / completed / in-progress task c
 
 ### Collaboration
 
-Task-level comments with author attribution. Comment content is indexed as its own embedding chunk, so the AI can answer questions like "What did the team say about the authentication task?" with precision.
+Task-level comments with author attribution. Comment content is indexed as its own embedding chunk, so the AI can answer questions like "What did the team say about the authentication task?" with precision. Comments can also carry **file attachments** (see below), whose contents become part of the same searchable knowledge base.
+
+### Comment Attachments (RAG over uploaded files)
+
+Comments accept file attachments — up to 10 files per comment — and every attachment is ingested into the embedding pipeline so the AI assistant can answer questions about the **contents** of uploaded files, not just their names.
+
+- **Hybrid storage, routed by type.** Images (`jpg`, `png`, `webp`; max 5 MB) go to **Cloudinary**; documents (`pdf`, `doc`, `docx`, `txt`, `csv`, `md`; max 20 MB) go to a **private Supabase Storage bucket**. The two paths never cross — a `provider` discriminator on each `Attachment` record drives upload, download, and cleanup.
+- **Content extraction → text → embedding.** Documents are text-extracted (`pdf-parse` for PDFs, `mammoth` for Word, UTF-8 for plain text/CSV/Markdown). Images — and scanned PDFs with no extractable text — are passed to a **pluggable vision provider** (OpenAI `gpt-4o-mini` by default, selected via `CAPTION_PROVIDER`) that performs OCR + captioning. The resulting text is chunked and embedded with `text-embedding-3-small` — the same model used everywhere else, so attachments share one vector space with tasks, comments, and projects.
+- **Validated on the way in.** Beyond the declared MIME type, binary uploads are checked by **magic bytes** (DOCX/`.doc` containers handled explicitly), and per-type size limits are enforced both at the Multer boundary and in the service.
+- **Atomic creation, best-effort cleanup.** Files are uploaded to storage first, then the `Comment` and its `Attachment` rows are created in a single DB transaction. If the transaction fails, the orphaned storage objects are cleaned up.
+- **Secure access.** Uploading requires access to the attachment's task project; downloading returns a **short-lived Supabase signed URL** (60 s) — the bucket stays private and the `service_role` key never leaves the server.
+- **Three-way cascade on delete.** Deleting a comment (or its task, or the whole project) removes the file from storage, the row from the database, and the vectors from `pgvector` — all routed to the correct provider.
 
 ### File Uploads
 
-Avatar upload support via Cloudinary with automatic URL management.
+Avatar upload support via Cloudinary with automatic URL management. Comment attachments use the hybrid Cloudinary + Supabase Storage pipeline described above.
 
 ### Asynchronous Email Processing
 
@@ -308,11 +321,13 @@ Full Swagger/OpenAPI documentation auto-generated and served at `/api`.
 
 **Real-time:** WebSockets (`@nestjs/websockets` · `@nestjs/platform-socket.io` · Socket.IO) — ticket-authenticated chat delivery
 
-**AI:** Pluggable agent provider — **OpenAI `gpt-4o-mini`** (default) or **Anthropic Claude `claude-sonnet-4-6`**, selected via `AGENT_PROVIDER`, with optional per-action escalation · OpenAI (`text-embedding-3-small`) for embeddings
+**AI:** Pluggable agent provider — **OpenAI `gpt-4o-mini`** (default) or **Anthropic Claude `claude-sonnet-4-6`**, selected via `AGENT_PROVIDER`, with optional per-action escalation · OpenAI (`text-embedding-3-small`) for embeddings · pluggable vision provider (`CAPTION_PROVIDER`) for image/scanned-PDF OCR
 
 **Infrastructure:** Oracle Cloud Infrastructure · PM2 · RabbitMQ
 
-**External Services:** Cloudinary · Resend
+**Storage & Extraction:** Cloudinary (images) · Supabase Storage (private bucket, documents) · `pdf-parse` · `mammoth` (Word → text)
+
+**External Services:** Cloudinary · Supabase · Resend
 
 **Tooling:** Swagger · Jest · Biome · PNPM
 
@@ -373,12 +388,24 @@ src/
 │   ├── tasks/
 │   ├── tags/
 │   ├── collaborators/
-│   ├── comments/
+│   ├── comments/              # task comments + multipart attachment upload
 │   ├── dashboard/
 │   ├── mail/
+│   ├── attachments/           # validation, hybrid storage routing, signed URLs, cascade cleanup
+│   │   ├── attachments.controller.ts  # GET :id/url → signed download URL
+│   │   ├── attachments.service.ts
+│   │   ├── attachment.constants.ts    # allowed MIME types, size limits, chunk sizing
+│   │   └── attachments.module.ts
+│   ├── storage/               # Supabase Storage client (private bucket, signed URLs)
+│   │   ├── storage.service.ts
+│   │   └── storage.module.ts
+│   ├── caption/               # pluggable vision provider (OCR + captioning)
+│   │   ├── caption.provider.ts        # CaptionProvider interface + DI token
+│   │   ├── providers/                 # openai / anthropic implementations
+│   │   └── caption.module.ts
 │   ├── embedding/
 │   │   ├── embedding.consumer.ts
-│   │   ├── embedding.service.ts
+│   │   ├── embedding.service.ts       # text extraction, chunking, vector search
 │   │   └── embedding.module.ts
 │   ├── rag/                     # embedding dispatchers (consumed by domain services)
 │   │   ├── rag.service.ts
@@ -407,9 +434,10 @@ src/
 - Node.js v18+
 - PostgreSQL with pgvector extension
 - RabbitMQ
-- OpenAI API key (embeddings)
+- OpenAI API key (embeddings + vision OCR)
 - Anthropic API key (chat agent)
-- Cloudinary account
+- Cloudinary account (image attachments + avatars)
+- Supabase project with a **private** Storage bucket (document attachments)
 - PNPM
 
 ### Installation
@@ -466,10 +494,19 @@ GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:3030/v1/auth/google/callback
 
-# Cloudinary
+# Cloudinary (avatars + image attachments)
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+
+# Supabase Storage (document attachments — private bucket)
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...   # server-side only, never exposed to clients
+SUPABASE_BUCKET=attachments
+
+# Caption / vision provider (OCR for images + scanned PDFs)
+CAPTION_PROVIDER=openai                    # openai (default) | anthropic
+OPENAI_VISION_MODEL=gpt-4o-mini
 
 # Email
 RESEND_API_KEY=re_7...

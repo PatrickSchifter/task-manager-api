@@ -182,9 +182,6 @@ export class EmbeddingService {
         return
       }
 
-      // Idempotency: delete all existing chunks for this attachment before re-inserting
-      await this.deleteBySource(EmbeddingSourceType.ATTACHMENT, attachmentId)
-
       const baseMetadata = {
         taskId: attachment.taskId,
         projectId: attachment.task.projectId,
@@ -193,15 +190,45 @@ export class EmbeddingService {
         kind: isImage ? 'image' : 'document',
       }
 
-      for (let i = 0; i < chunks.length; i++) {
-        await this.upsert({
-          sourceType: EmbeddingSourceType.ATTACHMENT,
-          sourceId: attachmentId,
-          content: chunks[i],
-          metadata: { ...baseMetadata, chunkIndex: i },
+      // Generate every embedding first (network I/O stays OUT of the transaction)…
+      const embeddedChunks = await Promise.all(
+        chunks.map(async (content, i) => ({
+          content,
           chunkIndex: i,
-        })
-      }
+          vector: await this.embed(content),
+          metadata: JSON.stringify({ ...baseMetadata, chunkIndex: i }),
+        })),
+      )
+
+      // …then swap all chunks atomically: delete old + insert new in one transaction,
+      // so a concurrent job can never observe a half-rewritten chunk set.
+      await this.prisma.$transaction(async (tx) => {
+        await tx.$executeRaw(Prisma.sql`
+          DELETE FROM "Embedding"
+          WHERE "sourceType" = ${EmbeddingSourceType.ATTACHMENT}::"EmbeddingSourceType"
+            AND "sourceId" = ${attachmentId}
+        `)
+
+        for (const { content, chunkIndex, vector, metadata } of embeddedChunks) {
+          await tx.$executeRaw(Prisma.sql`
+            INSERT INTO "Embedding" ("id", "sourceType", "sourceId", "content", "vector", "metadata", "chunkIndex", "createdAt")
+            VALUES (
+              gen_random_uuid(),
+              ${EmbeddingSourceType.ATTACHMENT}::"EmbeddingSourceType",
+              ${attachmentId},
+              ${content},
+              ${vector}::vector,
+              ${metadata}::jsonb,
+              ${chunkIndex},
+              now()
+            )
+            ON CONFLICT ("sourceType", "sourceId", "chunkIndex") DO UPDATE
+              SET "content"  = EXCLUDED."content",
+                  "vector"   = EXCLUDED."vector",
+                  "metadata" = EXCLUDED."metadata"
+          `)
+        }
+      })
 
       await this.prisma.attachment.update({
         where: { id: attachmentId },
@@ -246,11 +273,13 @@ export class EmbeddingService {
     type Result = { sourceType: string; sourceId: string; content: string; similarity: number }
 
     if (allowedSourceIds && allowedSourceIds.length > 0) {
-      const values = allowedSourceIds
-        .map(
-          ({ sourceType, sourceId }) => `('${sourceType}'::"EmbeddingSourceType", '${sourceId}')`,
-        )
-        .join(', ')
+      // Parameterised tuple list — IDs are bound, never interpolated into SQL.
+      const tuples = Prisma.join(
+        allowedSourceIds.map(
+          ({ sourceType, sourceId }) =>
+            Prisma.sql`(${sourceType}::"EmbeddingSourceType", ${sourceId})`,
+        ),
+      )
 
       const results = await this.prisma.$queryRaw<Result[]>(Prisma.sql`
       SELECT
@@ -259,8 +288,11 @@ export class EmbeddingService {
         e."content",
         1 - (e."vector" <=> ${vector}::vector) AS similarity
       FROM "Embedding" e
-      WHERE (e."sourceType", e."sourceId") IN (${Prisma.raw(values)})
-      ORDER BY similarity DESC
+      WHERE (e."sourceType", e."sourceId") IN (${tuples})
+      -- Order by the raw distance operator (ASC = closest first) so the HNSW
+      -- index can serve the sort; ordering by the derived similarity column
+      -- would force an exact full-scan KNN instead.
+      ORDER BY e."vector" <=> ${vector}::vector
       LIMIT ${limit}
     `)
 
@@ -293,7 +325,9 @@ export class EmbeddingService {
         )
       )
     )
-    ORDER BY similarity DESC
+    -- Order by the raw distance operator (ASC = closest first) so the HNSW
+    -- index can serve the sort instead of an exact full-scan KNN.
+    ORDER BY e."vector" <=> ${vector}::vector
     LIMIT ${limit}
   `)
 
@@ -429,6 +463,15 @@ export class EmbeddingService {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
+  /** Generate a pgvector literal (`[a,b,...]`) for a piece of text. */
+  private async embed(content: string): Promise<string> {
+    const response = await this.openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: content,
+    })
+    return `[${response.data[0].embedding.join(',')}]`
+  }
+
   private async upsert({
     sourceType,
     sourceId,
@@ -442,12 +485,7 @@ export class EmbeddingService {
     metadata: object
     chunkIndex?: number
   }) {
-    const response = await this.openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: content,
-    })
-
-    const vector = `[${response.data[0].embedding.join(',')}]`
+    const vector = await this.embed(content)
 
     await this.prisma.$executeRaw(Prisma.sql`
       INSERT INTO "Embedding" ("id", "sourceType", "sourceId", "content", "vector", "metadata", "chunkIndex", "createdAt")

@@ -30,7 +30,9 @@ describe('AgentService', () => {
   })
 
   const build = (cfg: ConfigOverrides = {}) =>
-    new AgentService(chat, makeConfig(cfg), anthropic, openai)
+    // The providers are intentionally minimal mocks (name + run); cast past the
+    // concrete provider classes the constructor is typed against.
+    new AgentService(chat, makeConfig(cfg), anthropic as any, openai as any)
 
   it('logs and stops when the message is not found', async () => {
     chat.findByIdInternal.mockResolvedValue(null)

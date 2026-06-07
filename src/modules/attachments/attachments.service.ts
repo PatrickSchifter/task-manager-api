@@ -51,6 +51,13 @@ function detectMimeFromMagicBytes(buffer: Buffer): string | null {
   return null
 }
 
+// text/* types carry no magic signature, so the declared MIME type is otherwise
+// trusted. A NUL byte is the classic "this is binary" signal (git uses the same
+// heuristic) — reject it to stop a binary payload smuggled in as text/plain.
+function looksLikeText(buffer: Buffer): boolean {
+  return !buffer.subarray(0, 8192).includes(0x00)
+}
+
 @Injectable()
 export class AttachmentsService {
   private readonly logger = new Logger(AttachmentsService.name)
@@ -74,6 +81,12 @@ export class AttachmentsService {
 
     if (!ALLOWED_MIME_TYPES.includes(effectiveMime)) {
       throw new BadRequestException(`Unsupported file type: ${effectiveMime}`)
+    }
+
+    // No magic bytes were matched but the file claims to be text — make sure it
+    // actually is, instead of trusting the client-declared MIME type blindly.
+    if (detected === null && effectiveMime.startsWith('text/') && !looksLikeText(file.buffer)) {
+      throw new BadRequestException(`File "${file.originalname}" is not valid text`)
     }
 
     const isImage = (IMAGE_MIME_TYPES as readonly string[]).includes(effectiveMime)
