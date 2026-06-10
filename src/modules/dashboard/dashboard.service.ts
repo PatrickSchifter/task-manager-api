@@ -26,7 +26,7 @@ export class DashboardService {
     // Métricas contam apenas tarefas top-level (parentId IS NULL). Subtarefas são
     // unidades de trabalho internas e não entram nas contagens do dashboard.
     const todayDayOfWeek = new Date().getDay() // 0=Sun…6=Sat (matches days convention)
-    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayStr = new Date().toLocaleDateString('sv')
     const todayDate = new Date(`${todayStr}T00:00:00.000Z`)
 
     const [activeTasks, completedLast7Days, inProgress, recentProjects, upcomingTasks, routinesToday] =

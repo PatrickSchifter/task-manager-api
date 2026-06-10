@@ -38,7 +38,7 @@ export class RoutinesService {
     const { skip, take } = paginate(query)
     const where = { ownerId }
 
-    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayStr = new Date().toLocaleDateString('sv')
     const todayDate = new Date(`${todayStr}T00:00:00.000Z`)
 
     const [routines, total] = await Promise.all([
@@ -105,7 +105,7 @@ export class RoutinesService {
 
     if (!routine) throw new NotFoundException('Rotina não encontrada')
 
-    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayStr = new Date().toLocaleDateString('sv')
 
     return {
       ...routine,
