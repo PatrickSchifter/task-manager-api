@@ -37,6 +37,29 @@ export class DashboardTaskDTO {
   @ApiProperty() status: string
 }
 
+// ─── Routines ─────────────────────────────────────────────────────────────────
+
+export class DashboardRoutineItemDTO {
+  @ApiProperty() id: string
+  @ApiProperty() title: string
+  @ApiProperty() totalSlots: number
+  @ApiProperty() completedSlots: number
+}
+
+export class DashboardRoutineSummaryDTO {
+  @ApiProperty({ description: 'Active routines for today' })
+  todayActiveCount: number
+
+  @ApiProperty({ description: 'Total time slots across today\'s active routines' })
+  todayTotalSlots: number
+
+  @ApiProperty({ description: 'Completed time slots today' })
+  todayCompletedSlots: number
+
+  @ApiProperty({ type: [DashboardRoutineItemDTO] })
+  items: DashboardRoutineItemDTO[]
+}
+
 // ─── Response ─────────────────────────────────────────────────────────────────
 
 export class DashboardSummaryDTO {
@@ -48,4 +71,7 @@ export class DashboardSummaryDTO {
 
   @ApiProperty({ type: [DashboardTaskDTO] })
   upcomingTasks: DashboardTaskDTO[]
+
+  @ApiProperty({ type: DashboardRoutineSummaryDTO })
+  routines: DashboardRoutineSummaryDTO
 }

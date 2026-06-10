@@ -142,6 +142,46 @@ export class EmbeddingService {
     })
   }
 
+  async generateForRoutine(routineId: string) {
+    const routine = await this.prisma.routine.findUnique({
+      where: { id: routineId },
+      include: { times: { orderBy: { startTime: 'asc' } } },
+    })
+
+    if (!routine) throw new NotFoundException(`Routine ${routineId} not found`)
+
+    const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    const daysLabel =
+      routine.days.length === 0
+        ? 'Every day'
+        : routine.days
+            .slice()
+            .sort((a, b) => a - b)
+            .map((d) => DAY_NAMES[d])
+            .join(', ')
+
+    const timesLabel = routine.times.length
+      ? routine.times.map((t) => `${t.startTime}–${t.endTime}`).join(', ')
+      : 'No scheduled times'
+
+    const content = [
+      `Routine: ${routine.title}`,
+      routine.description ? `Description: ${routine.description}` : null,
+      `Active: ${routine.active ? 'yes' : 'no (paused)'}`,
+      `Days: ${daysLabel}`,
+      `Times: ${timesLabel}`,
+    ]
+      .filter(Boolean)
+      .join('\n')
+
+    await this.upsert({
+      sourceType: EmbeddingSourceType.ROUTINE,
+      sourceId: routineId,
+      content,
+      metadata: { ownerId: routine.ownerId, active: routine.active },
+    })
+  }
+
   async generateForAttachment(attachmentId: string) {
     const attachment = await this.prisma.attachment.findUnique({
       where: { id: attachmentId },
@@ -324,6 +364,13 @@ export class EmbeddingService {
           WHERE pc."userId" = ${userId} OR p."createdById" = ${userId}
         )
       )
+      OR
+      (
+        e."sourceType" = 'ROUTINE'
+        AND e."sourceId" IN (
+          SELECT r.id FROM "Routine" r WHERE r."ownerId" = ${userId}
+        )
+      )
     )
     -- Order by the raw distance operator (ASC = closest first) so the HNSW
     -- index can serve the sort instead of an exact full-scan KNN.
@@ -340,10 +387,10 @@ export class EmbeddingService {
       status?: string[]
       priority?: string[]
       projectId?: string
-      sourceTypes?: ('TASK' | 'COMMENT' | 'PROJECT' | 'ATTACHMENT')[]
+      sourceTypes?: ('TASK' | 'COMMENT' | 'PROJECT' | 'ATTACHMENT' | 'ROUTINE')[]
     },
   ): Promise<{ sourceType: EmbeddingSourceType; sourceId: string }[]> {
-    const sourceTypes = filters.sourceTypes ?? ['TASK', 'COMMENT', 'PROJECT', 'ATTACHMENT']
+    const sourceTypes = filters.sourceTypes ?? ['TASK', 'COMMENT', 'PROJECT', 'ATTACHMENT', 'ROUTINE']
     const result: { sourceType: EmbeddingSourceType; sourceId: string }[] = []
 
     if (sourceTypes.includes('TASK')) {
@@ -415,6 +462,16 @@ export class EmbeddingService {
           sourceType: EmbeddingSourceType.ATTACHMENT,
           sourceId: a.id,
         })),
+      )
+    }
+
+    if (sourceTypes.includes('ROUTINE')) {
+      const routines = await this.prisma.routine.findMany({
+        where: { ownerId: userId },
+        select: { id: true },
+      })
+      result.push(
+        ...routines.map((r) => ({ sourceType: EmbeddingSourceType.ROUTINE, sourceId: r.id })),
       )
     }
 

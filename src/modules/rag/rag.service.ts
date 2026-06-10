@@ -6,11 +6,13 @@ import {
   DELETE_ATTACHMENT_EMBEDDING,
   DELETE_EMBEDDING,
   DELETE_EMBEDDING_BY_PROJECT,
+  DELETE_ROUTINE_EMBEDDING,
   DELETE_TASK_EMBEDDING,
   EMBEDDING_SERVICE,
   GENERATE_ATTACHMENT_EMBEDDING,
   GENERATE_COMMENT_EMBEDDING,
   GENERATE_PROJECT_EMBEDDING,
+  GENERATE_ROUTINE_EMBEDDING,
   GENERATE_TASK_EMBEDDING,
 } from 'src/consts'
 
@@ -50,6 +52,14 @@ export class RagService {
 
   dispatchAttachmentDelete(attachmentId: string) {
     this.dispatch(DELETE_ATTACHMENT_EMBEDDING, { attachmentId })
+  }
+
+  dispatchRoutineEmbedding(routineId: string) {
+    this.dispatch(GENERATE_ROUTINE_EMBEDDING, { routineId })
+  }
+
+  dispatchRoutineDelete(routineId: string) {
+    this.dispatch(DELETE_ROUTINE_EMBEDDING, { routineId })
   }
 
   private dispatch(event: string, payload: object) {

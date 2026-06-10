@@ -4,7 +4,7 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: 'search_knowledge_base',
     description:
-      "Search projects, tasks, and comments using semantic similarity. Use this to answer questions about the user's data (tasks, projects, comments). Always try this first for informational questions.",
+      "Search projects, tasks, comments, and personal routines using semantic similarity. Use this to answer questions about the user's data. Always try this first for informational questions.",
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -29,9 +29,12 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         },
         sourceTypes: {
           type: 'array',
-          items: { type: 'string', enum: ['TASK', 'COMMENT', 'PROJECT', 'ATTACHMENT'] },
+          items: {
+            type: 'string',
+            enum: ['TASK', 'COMMENT', 'PROJECT', 'ATTACHMENT', 'ROUTINE'],
+          },
           description:
-            'Optional: filter results by source type (ATTACHMENT = file attachments on comments)',
+            'Optional: filter results by source type. ROUTINE = personal recurring activities with scheduled times.',
         },
       },
       required: ['query'],
@@ -167,6 +170,23 @@ export const TOOL_DEFINITIONS: Anthropic.Tool[] = [
         },
       },
       required: ['projectId', 'email'],
+    },
+  },
+  {
+    name: 'explain_platform_feature',
+    description:
+      'Returns documentation about a specific platform feature. Use whenever the user asks how to use a feature, what a feature does, or how something works in the platform.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        feature: {
+          type: 'string',
+          enum: ['overview', 'projects', 'tasks', 'routines', 'chat'],
+          description:
+            'The feature to explain. Use "overview" for a general platform introduction.',
+        },
+      },
+      required: ['feature'],
     },
   },
 ]
