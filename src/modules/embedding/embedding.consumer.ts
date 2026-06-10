@@ -4,10 +4,12 @@ import {
   DELETE_ATTACHMENT_EMBEDDING,
   DELETE_EMBEDDING,
   DELETE_EMBEDDING_BY_PROJECT,
+  DELETE_ROUTINE_EMBEDDING,
   DELETE_TASK_EMBEDDING,
   GENERATE_ATTACHMENT_EMBEDDING,
   GENERATE_COMMENT_EMBEDDING,
   GENERATE_PROJECT_EMBEDDING,
+  GENERATE_ROUTINE_EMBEDDING,
   GENERATE_TASK_EMBEDDING,
 } from 'src/consts'
 import { EmbeddingSourceType } from 'src/generated/prisma/client'
@@ -63,5 +65,15 @@ export class EmbeddingConsumer {
   @EventPattern(DELETE_ATTACHMENT_EMBEDDING)
   async handleDeleteAttachmentEmbedding(@Payload() data: { attachmentId: string }) {
     await this.embeddingService.deleteBySource(EmbeddingSourceType.ATTACHMENT, data.attachmentId)
+  }
+
+  @EventPattern(GENERATE_ROUTINE_EMBEDDING)
+  async handleRoutineEmbedding(@Payload() data: { routineId: string }) {
+    await this.embeddingService.generateForRoutine(data.routineId)
+  }
+
+  @EventPattern(DELETE_ROUTINE_EMBEDDING)
+  async handleDeleteRoutineEmbedding(@Payload() data: { routineId: string }) {
+    await this.embeddingService.deleteBySource(EmbeddingSourceType.ROUTINE, data.routineId)
   }
 }

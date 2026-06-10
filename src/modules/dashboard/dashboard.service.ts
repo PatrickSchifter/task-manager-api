@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { RequestContextService } from 'src/common/services/request-context/request-context.service'
 import { PrismaService } from 'src/prisma/prisma.service'
-import { DashboardSummaryDTO } from './dashboard.dto'
+import { DashboardSummaryDTO, DashboardRoutineItemDTO } from './dashboard.dto'
 
 @Injectable()
 export class DashboardService {
@@ -25,7 +25,11 @@ export class DashboardService {
 
     // Métricas contam apenas tarefas top-level (parentId IS NULL). Subtarefas são
     // unidades de trabalho internas e não entram nas contagens do dashboard.
-    const [activeTasks, completedLast7Days, inProgress, recentProjects, upcomingTasks] =
+    const todayDayOfWeek = new Date().getDay() // 0=Sun…6=Sat (matches days convention)
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`)
+
+    const [activeTasks, completedLast7Days, inProgress, recentProjects, upcomingTasks, routinesToday] =
       await Promise.all([
         // Tarefas ativas (TODO + IN_PROGRESS)
         this.prisma.task.count({
@@ -89,9 +93,39 @@ export class DashboardService {
             project: { select: { name: true, id: true } },
           },
         }),
+
+        // Rotinas ativas hoje (days vazio = todo dia; ou contém o dia da semana)
+        this.prisma.routine.findMany({
+          where: {
+            ownerId: userId,
+            active: true,
+            OR: [{ days: { isEmpty: true } }, { days: { has: todayDayOfWeek } }],
+          },
+          select: {
+            id: true,
+            title: true,
+            times: {
+              select: {
+                id: true,
+                completions: {
+                  where: { date: todayDate },
+                  select: { id: true },
+                },
+              },
+            },
+          },
+          orderBy: { title: 'asc' },
+        }),
       ])
 
     // ─── Formatação ──────────────────────────────────────────────────────────
+
+    const routineItems: DashboardRoutineItemDTO[] = routinesToday.map((r) => ({
+      id: r.id,
+      title: r.title,
+      totalSlots: r.times.length,
+      completedSlots: r.times.filter((t) => t.completions.length > 0).length,
+    }))
 
     return {
       stats: {
@@ -113,6 +147,12 @@ export class DashboardService {
         priority: t.priority,
         status: t.status,
       })),
+      routines: {
+        todayActiveCount: routinesToday.length,
+        todayTotalSlots: routineItems.reduce((sum, r) => sum + r.totalSlots, 0),
+        todayCompletedSlots: routineItems.reduce((sum, r) => sum + r.completedSlots, 0),
+        items: routineItems,
+      },
     }
   }
 }

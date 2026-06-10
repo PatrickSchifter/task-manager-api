@@ -33,6 +33,7 @@ model User {
   chatMessages    ChatMessage[]
   tags            Tag[]        @relation("UserTags")
   attachments     Attachment[] @relation("UploadedAttachments")
+  routines        Routine[]    @relation("UserRoutines")
 }
 
 enum CollaboratorRole {
@@ -177,6 +178,7 @@ enum EmbeddingSourceType {
   COMMENT
   PROJECT
   ATTACHMENT
+  ROUTINE
 }
 
 model Embedding {
@@ -226,6 +228,60 @@ model Attachment {
 
   @@index([taskId])
   @@index([commentId])
+}
+
+// Rotinas: atividades pessoais recorrentes (ex.: "Tomar água") que se repetem
+// todos os dias em vários horários fixos. Estrutura separada de Task de
+// propósito: rotina pertence ao usuário (não a um projeto), não participa do
+// kanban/ordenação fracionária e o "concluído" é por (horário, dia) — um
+// registro em RoutineCompletion — em vez de um status terminal na entidade.
+model Routine {
+  id          String  @id @default(uuid())
+  title       String
+  description String?
+  // Pausa a rotina sem perder o histórico de conclusões.
+  active      Boolean @default(true)
+  // Dias da semana em que a rotina está ativa (0=Dom … 6=Sáb).
+  // Array vazio [] significa "todos os dias" (padrão para compatibilidade retroativa).
+  days        Int[]   @default([])
+  ownerId     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User          @relation("UserRoutines", fields: [ownerId], references: [id], onDelete: Cascade)
+  times RoutineTime[]
+
+  @@index([ownerId])
+}
+
+// Um bloco de tempo do dia em que a rotina deve ser executada (ex.: 08:00–09:00).
+model RoutineTime {
+  id        String @id @default(uuid())
+  // Horário de início e fim no formato HH:mm (24h), validados na aplicação.
+  startTime String
+  endTime   String
+  routineId String
+
+  routine     Routine             @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  completions RoutineCompletion[]
+
+  @@unique([routineId, startTime])
+}
+
+// Marca que um horário da rotina foi cumprido num determinado dia. O unique
+// (routineTimeId, date) faz o "concluir" ser idempotente por dia.
+model RoutineCompletion {
+  id            String   @id @default(uuid())
+  routineTimeId String
+  // Dia (sem hora) da conclusão.
+  date          DateTime @db.Date
+
+  createdAt DateTime @default(now())
+
+  routineTime RoutineTime @relation(fields: [routineTimeId], references: [id], onDelete: Cascade)
+
+  @@unique([routineTimeId, date])
 }
 
 enum MessageStatus {

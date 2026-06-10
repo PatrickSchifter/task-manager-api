@@ -19,6 +19,7 @@ import { HealthModule } from './modules/health/health.module'
 import { MailModule } from './modules/mail/mail.module'
 import { ProjectsModule } from './modules/projects/projects.module'
 import { RagModule } from './modules/rag/rag.module'
+import { RoutinesModule } from './modules/routines/routines.module'
 import { TagsModule } from './modules/tags/tags.module'
 import { TasksModule } from './modules/tasks/tasks.module'
 import { UsersModule } from './modules/users/users.module'
@@ -33,6 +34,7 @@ import { PrismaModule } from './prisma/prisma.module'
     PrismaModule,
     ProjectsModule,
     TasksModule,
+    RoutinesModule,
     TagsModule,
     UsersModule,
     CollaboratorsModule,

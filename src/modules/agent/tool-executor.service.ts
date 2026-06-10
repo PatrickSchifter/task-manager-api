@@ -16,7 +16,11 @@ interface SearchKnowledgeBaseInput {
   status?: string[]
   priority?: string[]
   projectId?: string
-  sourceTypes?: ('TASK' | 'COMMENT' | 'PROJECT' | 'ATTACHMENT')[]
+  sourceTypes?: ('TASK' | 'COMMENT' | 'PROJECT' | 'ATTACHMENT' | 'ROUTINE')[]
+}
+
+interface ExplainPlatformFeatureInput {
+  feature: 'overview' | 'projects' | 'tasks' | 'routines' | 'chat'
 }
 
 interface FindProjectByNameInput {
@@ -83,6 +87,8 @@ export class ToolExecutorService {
           return await this.addComment(input as AddCommentInput, actorId)
         case 'invite_collaborator':
           return await this.inviteCollaborator(input as InviteCollaboratorInput, actorId)
+        case 'explain_platform_feature':
+          return this.explainPlatformFeature(input as ExplainPlatformFeatureInput)
         default:
           return { error: `Unknown tool: ${toolName}` }
       }
@@ -207,5 +213,72 @@ export class ToolExecutorService {
         role: collaborator.role,
       },
     }
+  }
+
+  private explainPlatformFeature({ feature }: ExplainPlatformFeatureInput) {
+    const docs: Record<string, string> = {
+      overview: `
+## Platform Overview
+This is a project management platform with AI assistance. Main features:
+- **Projects**: Organize work into projects with Kanban boards and collaborators.
+- **Tasks**: Create and manage tasks with status, priority, due dates, subtasks, tags, comments, and file attachments.
+- **Routines**: Track personal recurring daily activities (e.g. "Drink water") with flexible time slots and day-of-week scheduling.
+- **Chat**: An AI assistant that can answer questions about your data, create tasks/projects, and explain platform features.
+      `.trim(),
+
+      projects: `
+## Projects
+Projects are workspaces that group related tasks. Key concepts:
+- **Create**: Give a name and optional description. You become the owner automatically.
+- **Kanban board**: Tasks are organized in columns by status (Todo, In Progress, Done — customizable per project).
+- **Collaborators**: Invite team members by email with VIEWER or EDITOR roles. Only the owner can invite.
+- **Statuses**: Each project can have its own custom task statuses with a defined order.
+- **Access control**: Only owners and collaborators can see or modify a project's tasks.
+      `.trim(),
+
+      tasks: `
+## Tasks
+Tasks live inside projects and represent individual work items.
+- **Fields**: Title (required), description, status, priority (Low/Medium/High), due date, assignee.
+- **Subtasks**: A task can have one level of subtasks. Subtasks cannot have their own subtasks.
+- **Tags**: Color-coded labels reusable across projects (owned per user). Assigned to tasks for filtering/search.
+- **Comments**: Text discussions on a task. Each comment can have file attachments.
+- **Attachments**: Upload files (PDF, Word, images, text) directly to tasks or comments. Files are processed and indexed for AI search.
+- **Ordering**: Tasks within a column can be reordered via drag-and-drop (fractional index ordering).
+- **Status columns**: Columns come from the project's status list. Moving a task between columns changes its status.
+      `.trim(),
+
+      routines: `
+## Routines
+Routines track personal recurring daily activities — things you do every day (or specific days) at scheduled times.
+- **Create**: Give a title (e.g. "Tomar água"), optional description, and add one or more time slots.
+- **Time slots**: Each slot has a start time and end time (e.g. 08:00–08:30). Add as many slots per day as needed.
+- **Days of the week**: Choose which days the routine is active (Mon–Sun). Leaving all days unselected means every day.
+- **Completing a slot**: On the routines page, click the circle icon next to a time slot to mark it as done for today. Click again to undo.
+- **Progress counter**: Each card shows how many slots were completed today (e.g. "2/3").
+- **Pause**: Routines can be paused without losing their completion history.
+- **History**: Every completion is stored per (time slot, date), so you can track historical adherence.
+      `.trim(),
+
+      chat: `
+## AI Chat Assistant
+The chat assistant understands natural language and interacts with your project data.
+**What it can do:**
+- Answer questions about your tasks, projects, comments, attachments, and routines using semantic search.
+- Create projects, tasks, and comments on your behalf.
+- Invite collaborators to projects you own.
+- Explain how any platform feature works (just ask).
+
+**Tips:**
+- Be specific: "What tasks are overdue in project X?" works better than "what's late?".
+- Semantic search means "what did I write about the login bug?" finds relevant comments even without exact word matches.
+- For routines: "What routines do I have in the morning?" or "Do I have any water-drinking reminders?" will find your routines.
+- Actions (create task, add comment) only happen when you explicitly ask and the tool call succeeds.
+      `.trim(),
+    }
+
+    const content = docs[feature]
+    if (!content) return { error: `Unknown feature: ${feature}` }
+    return { feature, documentation: content }
   }
 }
