@@ -38,6 +38,9 @@ export class RoutinesService {
     const { skip, take } = paginate(query)
     const where = { ownerId }
 
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const todayDate = new Date(`${todayStr}T00:00:00.000Z`)
+
     const [routines, total] = await Promise.all([
       this.prisma.routine.findMany({
         where,
@@ -52,14 +55,28 @@ export class RoutinesService {
           days: true,
           createdAt: true,
           updatedAt: true,
-          times: { select: routineTimeSelect, orderBy: { startTime: 'asc' } },
+          times: {
+            select: {
+              ...routineTimeSelect,
+              completions: { where: { date: todayDate }, select: { id: true } },
+            },
+            orderBy: { startTime: 'asc' },
+          },
         },
       }),
       this.prisma.routine.count({ where }),
     ])
 
     return paginateOutput<RoutineItemListDTO>({
-      data: routines as RoutineItemListDTO[],
+      data: routines.map((r) => ({
+        ...r,
+        times: r.times.map((t) => ({
+          id: t.id,
+          startTime: t.startTime,
+          endTime: t.endTime,
+          completedToday: t.completions.length > 0,
+        })),
+      })) as RoutineItemListDTO[],
       total,
       query,
     })
@@ -88,14 +105,20 @@ export class RoutinesService {
 
     if (!routine) throw new NotFoundException('Rotina não encontrada')
 
+    const todayStr = new Date().toISOString().slice(0, 10)
+
     return {
       ...routine,
-      times: routine.times.map((t) => ({
-        id: t.id,
-        startTime: t.startTime,
-        endTime: t.endTime,
-        completedDates: t.completions.map((c) => c.date.toISOString().slice(0, 10)),
-      })),
+      times: routine.times.map((t) => {
+        const completedDates = t.completions.map((c) => c.date.toISOString().slice(0, 10))
+        return {
+          id: t.id,
+          startTime: t.startTime,
+          endTime: t.endTime,
+          completedDates,
+          completedToday: completedDates.includes(todayStr),
+        }
+      }),
     } satisfies RoutineFullDTO
   }
 

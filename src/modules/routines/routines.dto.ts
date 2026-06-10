@@ -93,6 +93,7 @@ export class RoutineTimeDTO {
   @ApiProperty() id: string
   @ApiProperty() startTime: string
   @ApiProperty() endTime: string
+  @ApiProperty({ description: 'Indica se este slot foi concluído hoje' }) completedToday: boolean
 }
 
 export class RoutineTimeWithCompletionsDTO extends RoutineTimeDTO {
