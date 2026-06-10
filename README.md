@@ -20,12 +20,13 @@
 
 Most task managers just *store* your work. This one lets you **have a conversation with it.**
 
-Task Manager is a full SaaS platform where teams organize projects, tasks, and comments — but the part that makes it special is the built-in **AI assistant**. Instead of clicking through filters, you can simply ask:
+Task Manager is a full SaaS platform where teams organize projects, tasks, comments, and **personal routines** — but the part that makes it special is the built-in **AI assistant**. Instead of clicking through filters, you can simply ask:
 
 > *"What are my high-priority tasks this week?"*
 > *"What did the team say about the login bug?"*
 > *"Create a task to review the Q4 report in the Marketing project"*
 > *"Invite ana@acme.com to the Backend project"*
+> *"What morning routines do I have scheduled?"*
 
 …and get a real, accurate answer — or have it **done for you** — based on **your actual data**, not a generic chatbot guess.
 
@@ -115,13 +116,14 @@ A single loop — no brittle "is this a question or a command?" classifier. The 
 
 | Tool | What it does |
 |---|---|
-| `search_knowledge_base` | Semantic search over the user's tasks / projects / comments (the RAG pipeline below), with optional `status` / `priority` / `projectId` / `sourceType` filters the model chooses |
+| `search_knowledge_base` | Semantic search over the user's tasks / projects / comments / **routines** (the RAG pipeline below), with optional `status` / `priority` / `projectId` / `sourceType` filters the model chooses |
 | `find_project_by_name` | Resolve a project name → UUID within the user's accessible projects |
 | `find_task` | Resolve a task title → UUID |
 | `create_project` | Create a project (the caller becomes owner) |
 | `create_task` | Create a task in a project (resolving `projectId` first) |
 | `add_comment` | Add a comment to a task |
 | `invite_collaborator` | Add an existing user as a collaborator (owner-only) |
+| `explain_platform_feature` | Return structured documentation about a platform feature (overview, projects, tasks, routines, chat) — called whenever the user asks how something works |
 
 **Read tools are grounded in the RAG pipeline; write tools are authorized per-actor.** Each write tool re-checks ownership/collaboration on the target before mutating — the request-scoped HTTP guards don't run inside the queue, so every domain service self-authorizes from the `actorId` carried on the message.
 
@@ -247,11 +249,11 @@ GET /v1/chat?limit=20    ← client fetches conversation history
 
 ### Embedding Pipeline
 
-When a project, task, comment, or **attachment** is created or updated, an event is emitted to the `embedding_queue`. A dedicated `EmbeddingConsumer` picks it up, builds a rich text representation of the entity (including title, description, status, priority, assignee, project name, and due date), generates a 1536-dimension vector via OpenAI's `text-embedding-3-small` model, and upserts it into PostgreSQL using the `pgvector` extension.
+When a project, task, comment, **attachment**, or **routine** is created or updated, an event is emitted to the `embedding_queue`. A dedicated `EmbeddingConsumer` picks it up, builds a rich text representation of the entity (including title, description, status, priority, assignee, project name, and due date; or routine title, description, active state, scheduled days, and time slots), generates a 1536-dimension vector via OpenAI's `text-embedding-3-small` model, and upserts it into PostgreSQL using the `pgvector` extension.
 
 Key design decisions:
 
-- The embedding table is **polymorphic** — projects, tasks, comments, and attachments all live in a single `Embedding` table with a `sourceType` discriminator, making it trivially extensible to new entity types
+- The embedding table is **polymorphic** — projects, tasks, comments, attachments, and **routines** all live in a single `Embedding` table with a `sourceType` discriminator, making it trivially extensible to new entity types
 - Embeddings carry a `metadata` JSON field (`projectId`, `assigneeId`, `status`, `priority`, `dueDate`, and `parentId` / `parentTitle` for subtasks) enabling pre-filter queries without extra JOINs. The indexed text also includes the parent link on a subtask and a subtask summary (`Subtasks (3/5 done): ...`) on a parent, so the assistant can answer "what's left on task X?"
 - Attachments are **chunked** — a long document is split into overlapping ~700-token chunks, each stored as its own row sharing the same `sourceId` but a distinct `chunkIndex` (the `Embedding` unique key is `(sourceType, sourceId, chunkIndex)`). Re-embedding an attachment deletes all of its chunks first, so the operation is fully idempotent. Tasks, comments, and projects remain single-row (`chunkIndex = 0`)
 - Search is index-backed — an **HNSW** index (`vector_cosine_ops`) serves the nearest-neighbour sort, and the query orders by the raw distance operator (`vector <=> query`) so the index is actually used. Every result is scoped to projects the requesting user owns or collaborates on (attachment chunks carry their task's `projectId` in metadata, so they never leak across projects)
@@ -278,9 +280,19 @@ Tasks can be broken down into **subtasks** — modeled as a single-level self-re
 
 Per-user tag catalog reused across projects, with deterministic auto-assigned colors. A find-or-create flow resolves tag names to IDs when creating or editing tasks, and ownership is enforced so users only ever touch their own tags.
 
+### Personal Routines
+
+A habit-tracking system for personal recurring activities — things like "Morning exercise" or "Drink water" that happen on a schedule, independently of projects.
+
+- **Model:** each `Routine` belongs to an owner and carries a `title`, optional `description`, an `active` flag, and an `Int[]` `days` array (0=Sun…6=Sat; empty = every day)
+- **Time slots:** a routine has one or more `RoutineTime` records, each with a `startTime` and `endTime` (HH:mm). Multiple slots per day are supported (e.g. 08:00–08:30 and 20:00–20:15)
+- **Completions:** each slot can be checked off for a given calendar date via a `RoutineCompletion` record (`routineTimeId + date`, unique). Toggling the same slot twice on the same day removes the completion
+- **RAG integration:** when a routine is created or updated, its content is embedded and indexed in the same `pgvector` table as tasks and projects — scoped to the owner's `userId`. The AI assistant can answer questions like *"What are my morning routines?"* using semantic search
+- **Dashboard:** an aggregated summary of today's active routines (routines whose `days` includes today, or whose `days` is empty) is returned alongside task metrics — total slots, completed slots, and per-routine progress
+
 ### Dashboard
 
-An aggregated summary endpoint returning active / completed / in-progress task counts, recent projects with task progress, and upcoming deadlines — all scoped to projects the user owns or collaborates on, computed in parallel queries. Counts cover only top-level tasks (`parentId IS NULL`); subtasks are internal units of work and don't inflate the metrics.
+An aggregated summary endpoint returning active / completed / in-progress task counts, recent projects with task progress, upcoming deadlines, and **today's routine progress** (active routines, total time slots, and completed slots) — all scoped to projects the user owns or collaborates on and routines the user owns, computed in parallel queries. Task counts cover only top-level tasks (`parentId IS NULL`); subtasks are internal units of work and don't inflate the metrics.
 
 ### Collaboration
 
@@ -389,6 +401,7 @@ src/
 │   ├── tags/
 │   ├── collaborators/
 │   ├── comments/              # task comments + multipart attachment upload
+│   ├── routines/              # personal habit/routine CRUD + completion toggle
 │   ├── dashboard/
 │   ├── mail/
 │   ├── attachments/           # validation, hybrid storage routing, signed URLs, cascade cleanup
@@ -624,6 +637,13 @@ GET    /v1/dashboard/summary
 POST   /v1/tasks/:id/comments
 DELETE /v1/comments/:id
 
+GET    /v1/routines
+POST   /v1/routines
+GET    /v1/routines/:id
+PATCH  /v1/routines/:id
+DELETE /v1/routines/:id
+POST   /v1/routines/:id/times/:timeId/toggle  ← mark slot done/undone for a date
+
 POST   /v1/chat              ← enqueue message
 POST   /v1/chat/ws-ticket    ← mint short-lived WebSocket ticket
 GET    /v1/chat/:messageId   ← poll for result (fallback)
@@ -639,6 +659,10 @@ Full Swagger documentation at `/api` after starting the server.
 ## Roadmap
 
 - [x] Agentic chat: act on your data (create project/task/comment, invite collaborator) via a Claude tool-use loop
+- [x] Personal routines with start/end time slots, day-of-week scheduling, and daily completion tracking
+- [x] Routines indexed in the RAG pipeline — the AI assistant can answer questions about the user's habits
+- [x] `explain_platform_feature` tool — the assistant can explain how any feature works when asked
+- [x] Dashboard routine summary (today's active routines, slot progress, per-routine completion)
 - [ ] Confirmation step for destructive/irreversible chat actions (preview → confirm → execute)
 - [ ] Separate RabbitMQ consumer process (independent scaling)
 - [x] WebSocket delivery of chat status (primary path; HTTP polling kept as fallback)
